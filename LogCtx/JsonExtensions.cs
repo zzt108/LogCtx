@@ -1,92 +1,47 @@
 ﻿using System.Runtime.CompilerServices;
+using Newtonsoft.Json;
 
-namespace LogCtxNameSpace;
-
-public class LogCtx:IDisposable
+namespace LogCtxNameSpace
 {
-    public const string FILE = "CTX_FILE";
-    public const string LINE = "CTX_LINE";
-    public const string METHOD = "CTX_METHOD";
-    public const string SRC = "CTX_SRC";
-
-    public const string STRACE = "CTX_STRACE";
-
-    public static bool CanLog = true;
-
-    //public static ILogger? Logger;
-    private static IScopeContext? _scopeContext;
-
-    public LogCtx(IScopeContext scopeContext)
+    public static class JsonExtensions
     {
-        _scopeContext = scopeContext;
-    }
-
-    public void Dispose()
-    {
-        _scopeContext?.Clear();
-    }
-
-    /// <summary>
-    /// Sets the scope context properties.
-    /// </summary>
-    /// <param name="scopeContextProps">The scope context properties.</param>
-    /// <param name="methodNameLogLevel">The method name log level.</param>
-    /// <param name="memberName">Name of the member.</param>
-    /// <param name="sourceFilePath">The source file path.</param>
-    /// <param name="sourceLineNumber">The source line number.</param>
-    /// <returns>The scope context properties.</returns>
-    public Props Set(
-        Props scopeContextProps = null,
-        [CallerMemberName] string memberName = "",
-        [CallerFilePath] string sourceFilePath = "",
-        [CallerLineNumber] int sourceLineNumber = 0)
-    {
-        _scopeContext.Clear();
-
-        var fileName = Path.GetFileNameWithoutExtension(sourceFilePath);
-        var methodName = memberName;
-        var strace = $"{fileName}::{methodName}::{sourceLineNumber}\r\n";
-        var strace2 = $"{fileName}::{methodName}::{sourceLineNumber}\r\n";
-        var tr = new System.Diagnostics.StackTrace();
-        var sr = tr.ToString().Split('\n');
-
-        foreach (var frame in sr)
+        public static string AsJson(this object obj, bool indented = false)
         {
-            if (!frame.Trim().StartsWith("at System.") &&
-                !frame.Trim().StartsWith("at NUnit.") &&
-                !frame.Trim().StartsWith("at NLog.") &&
-                !frame.Trim().StartsWith("at TechTalk.") &&
-                !(frame == sr[0])
-                )
+            if (indented)
             {
-                strace2 += $"--{frame}\n";
+                return $"{JsonConvert.SerializeObject(obj, Formatting.Indented)}\n";
+            }
+            else
+            {
+                return JsonConvert.SerializeObject(obj);
             }
         }
 
-        _scopeContext.PushProperty(STRACE, strace2);
+        /// <summary>
+        /// Converts to full PlantUml json diagram. Do not use inside another PlantUml diagram!
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        public static string AsJsonDiagram(this object obj) => $"@startjson {obj.GetType().Name}\n{JsonConvert.SerializeObject(obj, Formatting.Indented)}\n@endjson\n";
 
-        scopeContextProps ??= new Props();
-        scopeContextProps.Remove(STRACE);
-        scopeContextProps.Add(STRACE, strace2);
+        /// <summary>
+        /// Converts to embedded json in a PlantUml diagram.
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        public static string AsJsonEmbedded(this object obj) => $"json \"{obj.GetType().Name}\" as J{{\n{JsonConvert.SerializeObject(obj, Formatting.Indented)}\n}}\n";
 
-        foreach (var key in scopeContextProps.Keys)
+        public static T FromJson<T>(string value) => JsonConvert.DeserializeObject<T>(value);
+
+        public static string Link(
+            [CallerMemberName] string memberName = "",
+            [CallerFilePath] string sourceFilePath = "",
+            [CallerLineNumber] int sourceLineNumber = 0)
         {
-            _scopeContext.PushProperty(key, scopeContextProps[key]?.ToString());
+            var fileName = Path.GetFileNameWithoutExtension(sourceFilePath);
+            return $"{sourceFilePath}({sourceLineNumber}):WT@F";
         }
 
-        return scopeContextProps;
-    }
-
-    public string Src(
-        string message,
-        [CallerMemberName] string memberName = "",
-        [CallerFilePath] string sourceFilePath = "",
-        [CallerLineNumber] int sourceLineNumber = 0)
-    {
-        var fileName = Path.GetFileNameWithoutExtension(sourceFilePath);
-        var methodName = memberName;
-
-        return $"{fileName}.{methodName}.{sourceLineNumber}";
     }
 }
 

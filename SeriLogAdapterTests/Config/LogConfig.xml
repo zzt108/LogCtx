@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<configuration>
+  <Serilog>
+    <Using>
+      <!--<string>Serilog.Sinks.Console</string>-->
+      <!--<string>Serilog.Sinks.Seq</string>-->
+    </Using>
+    <MinimumLevel>
+      <Default>Debug</Default>
+    </MinimumLevel>
+    <WriteTo>
+      <Name>Console</Name>
+    </WriteTo>
+    <WriteTo>
+      <Name>Seq</Name>
+      <Args>
+        <serverUrl>http://localhost:5341</serverUrl>
+      </Args>
+    </WriteTo>
+    <!--<Enrich>
+      <Name>FromLogContext</Name>
+      <Name>WithMachineName</Name>
+      <Name>WithThreadId</Name>
+    </Enrich>-->
+  </Serilog>
+</configuration>

@@ -9,10 +9,9 @@ namespace SeriLogAdapter
 
     public class SeriLogCtx:ILogCtxLogger
     {
-        public IScopeContext ScopeContext { get=>new SeriLogScopeContext(); }
-        IScopeContext ILogCtxLogger.ScopeContext { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        public LogCtx Ctx { get => new LogCtx(new SeriLogScopeContext()); set => throw new NotImplementedException(); }
 
-        public bool Configure(string configPath)
+        public bool ConfigureJson(string configPath)
         {
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
@@ -25,9 +24,27 @@ namespace SeriLogAdapter
             return true;
         }
 
+        public bool ConfigureXml(string configPath)
+        {
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddXmlFile(configPath)
+                .Build();
+
+            Log.Logger = new LoggerConfiguration()
+                .ReadFrom.Configuration(configuration)
+                .CreateLogger();
+            return true;
+        }
+
         public void Debug(string message)
         {
             Log.Debug(message);
+        }
+
+        public void Dispose()
+        {
+            Log.CloseAndFlush();
         }
 
         public void Error(Exception ex, string message)
@@ -64,4 +81,11 @@ namespace SeriLogAdapter
         }
     }
 
+    public class Props : LogCtxNameSpace.Props
+    {
+        public Props(params object[] args):base(args) 
+        {
+        }
+
+    }
 }

@@ -1,15 +1,14 @@
 using FluentAssertions;
 using NUnit.Framework;
 using SeriLogAdapter;
-using LogCtxNameSpace;
-using Serilog;
 
 namespace SeriLogAdapter.Tests
 {
     [TestFixture]
     public class SeriLogCtxTests
     {
-        private const string ConfigPath = "Config/LogConfig.json"; // Set the appropriate path for the config
+        private const string ConfigPathJson = "Config/LogConfig.json";
+        private const string ConfigPathXml = "Config/LogConfig.xml"; 
 
         [SetUp]
         public void Setup()
@@ -28,24 +27,10 @@ namespace SeriLogAdapter.Tests
             var seriLogCtx = new SeriLogCtx();
 
             // Act
-            var result = seriLogCtx.Configure(ConfigPath);
+            var result = seriLogCtx.ConfigureJson(ConfigPathJson);
 
             // Assert
             result.Should().BeTrue(); 
-        }
-
-        [Test]
-        public void ScopeContext_ShouldNotBeNullAfterInitialization()
-        {
-            // Arrange
-            var seriLogCtx = new SeriLogCtx();
-
-            // Act
-            var scopeContext = seriLogCtx.ScopeContext;
-
-            // Assert
-            scopeContext.Should().NotBeNull();
-            scopeContext.Should().BeOfType<SeriLogScopeContext>();
         }
 
         [Test]
@@ -53,28 +38,17 @@ namespace SeriLogAdapter.Tests
         {
             Serilog.Debugging.SelfLog.Enable(msg => Console.Error.WriteLine(msg));
             // Arrange
-            var log = new SeriLogCtx();
-            var result = log.Configure(ConfigPath);
-
-            //var outputTemplate = $"[{{Timestamp:HH:mm:ss,fff}} {{Level:u3}}] {{Message:lj}} [{{{LogCtx.FILE}}}.{{{LogCtx.METHOD}}}]{{NewLine}}{{Exception}}";
-            ////var outputTemplate = $"[{{Timestamp:mm:ss,fff}} {{Level:u3}}] {{Message:lj}}{{NewLine}}{{Exception}}";
-            //Log.Logger = new Serilog.LoggerConfiguration()
-            //    .MinimumLevel.Verbose()
-            //    .Enrich.FromLogContext()
-            //    .WriteTo.Console(Serilog.Events.LogEventLevel.Warning, outputTemplate: outputTemplate)
-            //    .WriteTo.Seq("http://localhost:5341")
-            //    .CreateLogger();
-
-            LogCtx.Init(log.ScopeContext);
-
+            using var log = new SeriLogCtx();
+            var result = log.ConfigureXml(ConfigPathXml);
 
             // Act
-            using var p = LogCtx.Set();
+            log.Ctx.Set(new Props("first", result, log));
             log.Debug("Debug");
-            log.Fatal(null, "Fatal");
+            log.Fatal(new ArgumentException("Test Fatal Argument Exception", "Param name"), "Fatal");
+            log.Error(new ArgumentException("Test Argument Exception", "Param name"), "Error");
 
             // Assert
-            Log.CloseAndFlush();
+            // Log.CloseAndFlush();
         }
 
         // Additional tests can be written to cover more functionality as needed.

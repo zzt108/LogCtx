@@ -1,14 +1,15 @@
 ﻿namespace LogCtxNameSpace
 {
-    public interface ILogCtxLogger
+    public interface ILogCtxLogger:IDisposable
     {
+        bool ConfigureXml(string configPath);
         void Fatal(Exception ex, string message);
         void Error(Exception ex, string message);
         void Trace(string message);
         void Info(string message);
         void Debug(string message);
-        bool Configure(string configPath);
-        IScopeContext ScopeContext { get; set; }
+        bool ConfigureJson(string configPath);
+        LogCtx Ctx { get; set; }
     }
 
     public interface IScopeContext

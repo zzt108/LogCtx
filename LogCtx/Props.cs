@@ -1,92 +1,82 @@
-﻿using System.Runtime.CompilerServices;
+﻿using Newtonsoft.Json;
 
 namespace LogCtxNameSpace;
 
-public class LogCtx:IDisposable
+public class Props : Dictionary<string, object>, IDisposable
 {
-    public const string FILE = "CTX_FILE";
-    public const string LINE = "CTX_LINE";
-    public const string METHOD = "CTX_METHOD";
-    public const string SRC = "CTX_SRC";
+    private bool _disposedValue;
 
-    public const string STRACE = "CTX_STRACE";
-
-    public static bool CanLog = true;
-
-    //public static ILogger? Logger;
-    private static IScopeContext? _scopeContext;
-
-    public LogCtx(IScopeContext scopeContext)
+    public Props()
     {
-        _scopeContext = scopeContext;
     }
+
+    public Props(params object[] args)
+    {
+        int i = 0;
+        foreach (var item in args)
+        {
+            Add($"P{i++:x2}", item.AsJson(true));
+        }
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposedValue)
+        {
+            if (disposing)
+            {
+                // TODO: dispose managed state (managed objects)
+            }
+
+            // TODO: free unmanaged resources (unmanaged objects) and override finalizer
+            // TODO: set large fields to null
+            _disposedValue = true;
+        }
+    }
+
+    public Props AddJson(string key, object value)
+    {
+        Add(key, JsonConvert.SerializeObject(value));
+        return this;
+    }
+
+    public new Props Add(string key, object? value)
+    {
+        if (ContainsKey(key))
+        {
+            Remove(key);
+        }
+
+        if (value == null)
+        {
+            base.Add(key, "null value");
+        }
+        else
+        {
+            base.Add(key, value);
+        }
+
+        return this;
+    }
+
+    public new Props Clear()
+    {
+        base.Clear();
+        return this;
+    }
+
+    // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
+    // ~Props()
+    // {
+    //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+    //     Dispose(disposing: false);
+    // }
 
     public void Dispose()
     {
-        _scopeContext?.Clear();
-    }
-
-    /// <summary>
-    /// Sets the scope context properties.
-    /// </summary>
-    /// <param name="scopeContextProps">The scope context properties.</param>
-    /// <param name="methodNameLogLevel">The method name log level.</param>
-    /// <param name="memberName">Name of the member.</param>
-    /// <param name="sourceFilePath">The source file path.</param>
-    /// <param name="sourceLineNumber">The source line number.</param>
-    /// <returns>The scope context properties.</returns>
-    public Props Set(
-        Props scopeContextProps = null,
-        [CallerMemberName] string memberName = "",
-        [CallerFilePath] string sourceFilePath = "",
-        [CallerLineNumber] int sourceLineNumber = 0)
-    {
-        _scopeContext.Clear();
-
-        var fileName = Path.GetFileNameWithoutExtension(sourceFilePath);
-        var methodName = memberName;
-        var strace = $"{fileName}::{methodName}::{sourceLineNumber}\r\n";
-        var strace2 = $"{fileName}::{methodName}::{sourceLineNumber}\r\n";
-        var tr = new System.Diagnostics.StackTrace();
-        var sr = tr.ToString().Split('\n');
-
-        foreach (var frame in sr)
-        {
-            if (!frame.Trim().StartsWith("at System.") &&
-                !frame.Trim().StartsWith("at NUnit.") &&
-                !frame.Trim().StartsWith("at NLog.") &&
-                !frame.Trim().StartsWith("at TechTalk.") &&
-                !(frame == sr[0])
-                )
-            {
-                strace2 += $"--{frame}\n";
-            }
-        }
-
-        _scopeContext.PushProperty(STRACE, strace2);
-
-        scopeContextProps ??= new Props();
-        scopeContextProps.Remove(STRACE);
-        scopeContextProps.Add(STRACE, strace2);
-
-        foreach (var key in scopeContextProps.Keys)
-        {
-            _scopeContext.PushProperty(key, scopeContextProps[key]?.ToString());
-        }
-
-        return scopeContextProps;
-    }
-
-    public string Src(
-        string message,
-        [CallerMemberName] string memberName = "",
-        [CallerFilePath] string sourceFilePath = "",
-        [CallerLineNumber] int sourceLineNumber = 0)
-    {
-        var fileName = Path.GetFileNameWithoutExtension(sourceFilePath);
-        var methodName = memberName;
-
-        return $"{fileName}.{methodName}.{sourceLineNumber}";
+        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
     }
 }
 
