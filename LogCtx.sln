@@ -3,13 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.11.35312.102
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogCtx", "LogCtx\LogCtx.csproj", "{410A2B70-DCDE-4DC3-82F9-CD96E88953E8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LogCtx", "LogCtx\LogCtx.csproj", "{410A2B70-DCDE-4DC3-82F9-CD96E88953E8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NLogAdapter", "NLogAdapter\NLogAdapter.csproj", "{58FE5FE3-7151-491A-B0E0-0B1D36E937C5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NLogAdapter", "NLogAdapter\NLogAdapter.csproj", "{58FE5FE3-7151-491A-B0E0-0B1D36E937C5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SeriLogAdapter", "SeriLogAdapter\SeriLogAdapter.csproj", "{476FE44A-8831-423E-ACE3-B6CDF8EB27A7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SeriLogAdapterTests", "SeriLogAdapterTests\SeriLogAdapterTests.csproj", "{E50F4763-86FC-4424-A8DC-B753FE742A89}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SeriLogAdapterTests", "SeriLogAdapterTests\SeriLogAdapterTests.csproj", "{E50F4763-86FC-4424-A8DC-B753FE742A89}"
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "SeriLogShared", "SeriLogShared\SeriLogShared.shproj", "{20D441B5-5A67-4BD2-85AB-5B8A98D1F907}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -25,10 +25,6 @@ Global
 		{58FE5FE3-7151-491A-B0E0-0B1D36E937C5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{58FE5FE3-7151-491A-B0E0-0B1D36E937C5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{58FE5FE3-7151-491A-B0E0-0B1D36E937C5}.Release|Any CPU.Build.0 = Release|Any CPU
-		{476FE44A-8831-423E-ACE3-B6CDF8EB27A7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{476FE44A-8831-423E-ACE3-B6CDF8EB27A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{476FE44A-8831-423E-ACE3-B6CDF8EB27A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{476FE44A-8831-423E-ACE3-B6CDF8EB27A7}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E50F4763-86FC-4424-A8DC-B753FE742A89}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{E50F4763-86FC-4424-A8DC-B753FE742A89}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E50F4763-86FC-4424-A8DC-B753FE742A89}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -39,5 +35,9 @@ Global
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B06A6BAA-16C1-407F-BF17-DEEB51FD2052}
+	EndGlobalSection
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		SeriLogShared\SeriLogShared.projitems*{20d441b5-5a67-4bd2-85ab-5b8a98d1f907}*SharedItemsImports = 13
+		SeriLogShared\SeriLogShared.projitems*{e50f4763-86fc-4424-a8dc-b753fe742a89}*SharedItemsImports = 5
 	EndGlobalSection
 EndGlobal

@@ -26,7 +26,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LogCtx\LogCtx.csproj" />
-    <ProjectReference Include="..\SeriLogAdapter\SeriLogAdapter.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -41,5 +40,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <Import Project="..\SeriLogShared\SeriLogShared.projitems" Label="Shared" />
 
 </Project>
