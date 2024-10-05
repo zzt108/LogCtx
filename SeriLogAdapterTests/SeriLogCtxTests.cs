@@ -2,6 +2,7 @@ using FluentAssertions;
 using NUnit.Framework;
 using SeriLogAdapter;
 using LogCtxNameSpace;
+using Serilog;
 
 namespace SeriLogAdapter.Tests
 {
@@ -50,9 +51,20 @@ namespace SeriLogAdapter.Tests
         [Test]
         public void CanDoStructuredLog()
         {
+            Serilog.Debugging.SelfLog.Enable(msg => Console.Error.WriteLine(msg));
             // Arrange
             var log = new SeriLogCtx();
             var result = log.Configure(ConfigPath);
+
+            //var outputTemplate = $"[{{Timestamp:HH:mm:ss,fff}} {{Level:u3}}] {{Message:lj}} [{{{LogCtx.FILE}}}.{{{LogCtx.METHOD}}}]{{NewLine}}{{Exception}}";
+            ////var outputTemplate = $"[{{Timestamp:mm:ss,fff}} {{Level:u3}}] {{Message:lj}}{{NewLine}}{{Exception}}";
+            //Log.Logger = new Serilog.LoggerConfiguration()
+            //    .MinimumLevel.Verbose()
+            //    .Enrich.FromLogContext()
+            //    .WriteTo.Console(Serilog.Events.LogEventLevel.Warning, outputTemplate: outputTemplate)
+            //    .WriteTo.Seq("http://localhost:5341")
+            //    .CreateLogger();
+
             LogCtx.Init(log.ScopeContext);
 
 
@@ -62,6 +74,7 @@ namespace SeriLogAdapter.Tests
             log.Fatal(null, "Fatal");
 
             // Assert
+            Log.CloseAndFlush();
         }
 
         // Additional tests can be written to cover more functionality as needed.
