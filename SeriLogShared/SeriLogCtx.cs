@@ -4,7 +4,7 @@ using Serilog;
 using Serilog.Context;
 using Serilog.Events;
 
-namespace SeriLogAdapter
+namespace SeriLogShared
 {
 
     public class SeriLogCtx:ILogCtxLogger
