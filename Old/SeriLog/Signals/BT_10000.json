@@ -1,0 +1,22 @@
+{
+  "Title": "BT10_000",
+  "Description": "Created by `zzt@emri.dk`",
+  "Filters": [
+    {
+      "Description": null,
+      "DescriptionIsExcluded": false,
+      "Filter": "\"BT10_000\"",
+      "FilterNonStrict": "BT10_000"
+    }
+  ],
+  "Columns": [],
+  "IsProtected": false,
+  "Grouping": "Inferred",
+  "ExplicitGroupName": null,
+  "OwnerId": "user-admin",
+  "Id": "signal-97",
+  "Links": {
+    "Self": "api/signals/signal-97?version=1",
+    "Group": "api/signals/resources"
+  }
+}
