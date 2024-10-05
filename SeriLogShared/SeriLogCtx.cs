@@ -7,32 +7,43 @@ using Serilog.Events;
 namespace SeriLogShared
 {
 
-    public class SeriLogCtx:ILogCtxLogger
+    public class SeriLogCtx : ILogCtxLogger
     {
+        private static IConfigurationRoot? _configuration = null;
+
+        public SeriLogCtx()
+        {
+            if (_configuration is not null)
+            {
+                Log.Logger = new LoggerConfiguration()
+                    .ReadFrom.Configuration(_configuration)
+                    .CreateLogger();
+            }
+        }
+
         public LogCtx Ctx { get => new LogCtx(new SeriLogScopeContext()); set => throw new NotImplementedException(); }
 
         public bool ConfigureJson(string configPath)
         {
-            var configuration = new ConfigurationBuilder()
+            _configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile(configPath)
                 .Build();
-
             Log.Logger = new LoggerConfiguration()
-                .ReadFrom.Configuration(configuration)
+                .ReadFrom.Configuration(_configuration )
                 .CreateLogger();
             return true;
         }
 
         public bool ConfigureXml(string configPath)
         {
-            var configuration = new ConfigurationBuilder()
+            _configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddXmlFile(configPath)
                 .Build();
 
             Log.Logger = new LoggerConfiguration()
-                .ReadFrom.Configuration(configuration)
+                .ReadFrom.Configuration(_configuration)
                 .CreateLogger();
             return true;
         }
@@ -81,11 +92,11 @@ namespace SeriLogShared
         }
     }
 
-    public class Props : LogCtxShared.Props
-    {
-        public Props(params object[] args):base(args) 
-        {
-        }
+    //public class Props : LogCtxShared.Props
+    //{
+    //    public Props(params object[] args):base(args) 
+    //    {
+    //    }
 
-    }
+    //}
 }
