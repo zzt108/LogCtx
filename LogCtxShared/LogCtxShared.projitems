@@ -9,6 +9,7 @@
     <Import_RootNamespace>LogCtxShared</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <Compile Include="$(MSBuildThisFileDirectory)IScopeContext.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)JsonExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)LogCtx.cs" />
