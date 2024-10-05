@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects Condition="'$(MSBuildVersion)' == '' Or '$(MSBuildVersion)' &lt; '16.0'">$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>7ec4223b-6d17-4608-816e-cd1e6a5411d9</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>LogCtxShared</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)IScopeContext.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)JsonExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)LogCtx.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Props.cs" />
+  </ItemGroup>
+</Project>

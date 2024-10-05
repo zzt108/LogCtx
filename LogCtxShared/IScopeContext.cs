@@ -1,4 +1,4 @@
-﻿namespace LogCtxNameSpace
+﻿namespace LogCtxShared
 {
     public interface ILogCtxLogger:IDisposable
     {

@@ -1,4 +1,4 @@
-﻿using LogCtxNameSpace;
+﻿using LogCtxShared;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 using Serilog.Context;
@@ -81,7 +81,7 @@ namespace SeriLogAdapter
         }
     }
 
-    public class Props : LogCtxNameSpace.Props
+    public class Props : LogCtxShared.Props
     {
         public Props(params object[] args):base(args) 
         {

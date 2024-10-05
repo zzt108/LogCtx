@@ -1,82 +1,47 @@
-﻿using Newtonsoft.Json;
+﻿using System.Runtime.CompilerServices;
+using Newtonsoft.Json;
 
-namespace LogCtxNameSpace;
-
-public class Props : Dictionary<string, object>, IDisposable
+namespace LogCtxShared
 {
-    private bool _disposedValue;
-
-    public Props()
+    public static class JsonExtensions
     {
-    }
-
-    public Props(params object[] args)
-    {
-        int i = 0;
-        foreach (var item in args)
+        public static string AsJson(this object obj, bool indented = false)
         {
-            Add($"P{i++:x2}", item.AsJson(true));
-        }
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (!_disposedValue)
-        {
-            if (disposing)
+            if (indented)
             {
-                // TODO: dispose managed state (managed objects)
+                return $"{JsonConvert.SerializeObject(obj, Formatting.Indented)}\n";
             }
-
-            // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-            // TODO: set large fields to null
-            _disposedValue = true;
+            else
+            {
+                return JsonConvert.SerializeObject(obj);
+            }
         }
-    }
 
-    public Props AddJson(string key, object value)
-    {
-        Add(key, JsonConvert.SerializeObject(value));
-        return this;
-    }
+        /// <summary>
+        /// Converts to full PlantUml json diagram. Do not use inside another PlantUml diagram!
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        public static string AsJsonDiagram(this object obj) => $"@startjson {obj.GetType().Name}\n{JsonConvert.SerializeObject(obj, Formatting.Indented)}\n@endjson\n";
 
-    public new Props Add(string key, object? value)
-    {
-        if (ContainsKey(key))
+        /// <summary>
+        /// Converts to embedded json in a PlantUml diagram.
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        public static string AsJsonEmbedded(this object obj) => $"json \"{obj.GetType().Name}\" as J{{\n{JsonConvert.SerializeObject(obj, Formatting.Indented)}\n}}\n";
+
+        public static T FromJson<T>(string value) => JsonConvert.DeserializeObject<T>(value);
+
+        public static string Link(
+            [CallerMemberName] string memberName = "",
+            [CallerFilePath] string sourceFilePath = "",
+            [CallerLineNumber] int sourceLineNumber = 0)
         {
-            Remove(key);
+            var fileName = Path.GetFileNameWithoutExtension(sourceFilePath);
+            return $"{sourceFilePath}({sourceLineNumber}):WT@F";
         }
 
-        if (value == null)
-        {
-            base.Add(key, "null value");
-        }
-        else
-        {
-            base.Add(key, value);
-        }
-
-        return this;
-    }
-
-    public new Props Clear()
-    {
-        base.Clear();
-        return this;
-    }
-
-    // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-    // ~Props()
-    // {
-    //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-    //     Dispose(disposing: false);
-    // }
-
-    public void Dispose()
-    {
-        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-        Dispose(disposing: true);
-        GC.SuppressFinalize(this);
     }
 }
 

@@ -1,4 +1,4 @@
-﻿using LogCtxNameSpace;
+﻿using LogCtxShared;
 using NLog;
 
 namespace NLogAdapter
@@ -15,7 +15,7 @@ namespace NLogAdapter
         }
     }
 
-    public class NLogScopeContext : LogCtxNameSpace.IScopeContext
+    public class NLogScopeContext : IScopeContext
     {
         public void Clear()
         {

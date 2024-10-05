@@ -25,10 +25,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\LogCtx\LogCtx.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Using Include="NUnit.Framework" />
   </ItemGroup>
 
@@ -42,5 +38,7 @@
   </ItemGroup>
 
   <Import Project="..\SeriLogShared\SeriLogShared.projitems" Label="Shared" />
+
+  <Import Project="..\LogCtxShared\LogCtxShared.projitems" Label="Shared" />
 
 </Project>
