@@ -1,22 +1,42 @@
 ﻿using LogCtxShared;
 using NLog;
+using NLog.Config;
+using NLog.Targets;
+using System;
 
 namespace NLogAdapter
 {
-    public class NLogCtx :ILogCtxLogger
+    public class NLogCtx : ILogCtxLogger
     {
         private Logger? Logger;
+        private LogCtx _ctx;
 
-        public LogCtx Ctx { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+//        public LogCtx Ctx { get => new LogCtx(new NLogScopeContext()); set => throw new NotImplementedException(); }
+
+        public LogCtx Ctx
+        {
+            get => _ctx;
+            set => _ctx = value;
+        }
 
         public bool ConfigureJson(string configPath)
         {
-            throw new NotImplementedException();
+            throw new NotImplementedException("Only XML configuration is supported");
         }
 
         public bool ConfigureXml(string configPath)
         {
-            throw new NotImplementedException();
+            try
+            {
+                var config = new LoggingConfiguration();
+                // TODO this is obsolete, should use LogManager.Setup
+                LogManager.LoadConfiguration(configPath);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException("Failed to configure logger from XML.", configPath);
+            }
         }
 
         public void Debug(string message)
@@ -26,7 +46,8 @@ namespace NLogAdapter
 
         public void Dispose()
         {
-            throw new NotImplementedException();
+            // Dispose of any resources if necessary
+            LogManager.Shutdown(); // This will flush and close down NLog
         }
 
         public void Error(Exception ex, string message)
@@ -47,6 +68,7 @@ namespace NLogAdapter
         public NLogCtx()
         {
             Logger = LogManager.GetCurrentClassLogger();
+            _ctx = new LogCtx(new NLogScopeContext()); // Initialize the context
         }
 
         public void Trace(string message)
@@ -67,5 +89,4 @@ namespace NLogAdapter
             NLog.ScopeContext.PushProperty(key, value);
         }
     }
-
 }

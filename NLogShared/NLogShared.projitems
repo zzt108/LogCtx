@@ -9,6 +9,10 @@
     <Import_RootNamespace>NLogShared</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="NLog" Version="5.3.4" />
+    <PackageReference Include="NLog.Targets.Seq" Version="4.0.1" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)NLogCtx.cs" />
   </ItemGroup>
 </Project>
