@@ -7,11 +7,11 @@ using Serilog.Events;
 namespace SeriLogShared
 {
 
-    public class SeriLogCtx : ILogCtxLogger
+    public class CtxLogger : ILogCtxLogger
     {
         private static IConfigurationRoot? _configuration = null;
 
-        public SeriLogCtx()
+        public CtxLogger()
         {
             if (_configuration is not null)
             {

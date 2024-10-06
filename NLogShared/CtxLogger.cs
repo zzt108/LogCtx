@@ -4,17 +4,17 @@ using NLog.Config;
 using NLog.Targets;
 using System;
 
-namespace NLogAdapter
+namespace NLogShared
 {
-    public class NLogCtx : ILogCtxLogger
+    public class CtxLogger : ILogCtxLogger
     {
         private static string? _logConfigPath = null;
         private Logger? Logger;
-        private LogCtx _ctx;
+        private LogCtxShared.LogCtx _ctx;
 
 //        public LogCtx Ctx { get => new LogCtx(new NLogScopeContext()); set => throw new NotImplementedException(); }
 
-        public LogCtx Ctx
+        public LogCtxShared.LogCtx Ctx
         {
             get => _ctx;
             set => _ctx = value;
@@ -72,11 +72,11 @@ namespace NLogAdapter
             Logger?.Info(message);
         }
 
-        public NLogCtx()
+        public CtxLogger()
         {
             ConfigureXml(_logConfigPath);
             Logger = LogManager.GetCurrentClassLogger();
-            _ctx = new LogCtx(new NLogScopeContext()); // Initialize the context
+            _ctx = new LogCtxShared.LogCtx(new NLogScopeContext()); // Initialize the context
         }
 
         public void Trace(string message)

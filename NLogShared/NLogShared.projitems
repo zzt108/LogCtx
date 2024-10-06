@@ -13,6 +13,6 @@
     <PackageReference Include="NLog.Targets.Seq" Version="4.0.1" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="$(MSBuildThisFileDirectory)NLogCtx.cs" />
+    <Compile Include="..\LogCtx\NLogShared\CtxLogger.cs" />
   </ItemGroup>
 </Project>
