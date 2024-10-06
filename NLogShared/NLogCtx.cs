@@ -8,6 +8,7 @@ namespace NLogAdapter
 {
     public class NLogCtx : ILogCtxLogger
     {
+        private static string? _logConfigPath = null;
         private Logger? Logger;
         private LogCtx _ctx;
 
@@ -24,13 +25,19 @@ namespace NLogAdapter
             throw new NotImplementedException("Only XML configuration is supported");
         }
 
-        public bool ConfigureXml(string configPath)
+        public bool ConfigureXml(string? configPath)
         {
+            if (configPath is null)
+            {
+                return false;
+            }
+
             try
             {
                 var config = new LoggingConfiguration();
                 // TODO this is obsolete, should use LogManager.Setup
                 LogManager.LoadConfiguration(configPath);
+                _logConfigPath = configPath;
                 return true;
             }
             catch (Exception ex)
@@ -67,6 +74,7 @@ namespace NLogAdapter
 
         public NLogCtx()
         {
+            ConfigureXml(_logConfigPath);
             Logger = LogManager.GetCurrentClassLogger();
             _ctx = new LogCtx(new NLogScopeContext()); // Initialize the context
         }
@@ -74,6 +82,11 @@ namespace NLogAdapter
         public void Trace(string message)
         {
             Logger?.Trace(message);
+        }
+
+        public void Warn(string message)
+        {
+            Logger?.Warn(message);
         }
     }
 

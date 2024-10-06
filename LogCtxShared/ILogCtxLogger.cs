@@ -3,12 +3,14 @@
     public interface ILogCtxLogger:IDisposable
     {
         bool ConfigureXml(string configPath);
+        bool ConfigureJson(string configPath);
         void Fatal(Exception ex, string message);
         void Error(Exception ex, string message);
-        void Trace(string message);
+        void Warn(string message);
         void Info(string message);
         void Debug(string message);
-        bool ConfigureJson(string configPath);
+        void Trace(string message);
+
         LogCtx Ctx { get; set; }
     }
 

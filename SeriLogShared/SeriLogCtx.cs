@@ -77,6 +77,11 @@ namespace SeriLogShared
         {
             Log.Verbose(message);
         }
+
+        public void Warn(string message)
+        {
+            Log.Warning(message);
+        }
     }
 
     public class SeriLogScopeContext : IScopeContext
