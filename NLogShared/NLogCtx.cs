@@ -3,15 +3,55 @@ using NLog;
 
 namespace NLogAdapter
 {
-    public class NLogCtx 
+    public class NLogCtx :ILogCtxLogger
     {
         private Logger? Logger;
-        public bool CanLog { get; set; }
-        public string Config { get; set; }
-        public bool Init()
+
+        public LogCtx Ctx { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+
+        public bool ConfigureJson(string configPath)
         {
-            Logger = CanLog ? LogManager.GetCurrentClassLogger() : null;
-            return Logger is not null;
+            throw new NotImplementedException();
+        }
+
+        public bool ConfigureXml(string configPath)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Debug(string message)
+        {
+            Logger?.Debug(message);
+        }
+
+        public void Dispose()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Error(Exception ex, string message)
+        {
+            Logger?.Error(ex, message);
+        }
+
+        public void Fatal(Exception ex, string message)
+        {
+            Logger?.Fatal(ex, message);
+        }
+
+        public void Info(string message)
+        {
+            Logger?.Info(message);
+        }
+
+        public NLogCtx()
+        {
+            Logger = LogManager.GetCurrentClassLogger();
+        }
+
+        public void Trace(string message)
+        {
+            Logger?.Trace(message);
         }
     }
 
