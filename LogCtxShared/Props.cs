@@ -15,7 +15,7 @@ public class Props : Dictionary<string, object>, IDisposable
         int i = 0;
         foreach (var item in args)
         {
-            Add($"P{i++:x2}", item.AsJson(true));
+            Add($"P{i++:x2}", JsonExtensions.AsJson(item, true));
         }
     }
 
