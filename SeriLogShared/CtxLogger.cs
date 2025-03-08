@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Configuration;
 using Serilog;
 using Serilog.Context;
-using Serilog.Events;
 
 namespace SeriLogShared
 {
