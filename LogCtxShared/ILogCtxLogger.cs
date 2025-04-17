@@ -11,7 +11,7 @@
         void Debug(string message);
         void Trace(string message);
 
-        LogCtx Ctx { get; set; }
+        LogCtx Ctx { get; }
     }
 
     public interface IScopeContext
