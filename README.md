@@ -1,173 +1,265 @@
+# LogCtx - Structured Logging Library
+*Contextual logging with automatic source location capture for .NET applications*
 
-# LogCtx
+[![.NET 8.0](https://img.shields.io/badge/.NET-8.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/8.0)
+[![NLog](https://img.shields.io/badge/NLog-5.3.4-green.svg)](https://nlog-project.org/)
+[![SEQ](https://img.shields.io/badge/SEQ-Ready-orange.svg)](https://datalust.co/seq)
 
-**Log Contextualization Library for .NET**
+## 🎯 **Quick Start**
 
-LogCtx is a lightweight .NET library designed to enrich your application logs with contextual information, making debugging and analysis easier. It provides a consistent way to add properties to your log messages, regardless of the underlying logging framework you choose (currently supporting NLog and Serilog). This project is intended to be included as a sub-repository within other projects, with the shared components directly referenced by the host project.
+LogCtx provides **structured logging with contextual properties** that automatically capture source location (file, method, line) and allow you to enrich logs with custom data. Perfect for **SEQ integration** and AI-assisted development.
 
-## Functionality
+### **Initialize Once**
+```csharp
+// Program.cs or App.xaml.cs - Initialize once per application
+using NLogShared;
+FailsafeLogger.Initialize("NLog.config");
+```
 
-- **Contextual Logging:**  Easily add contextual properties to your logs, such as method name, file name, line number, and custom data.
-- **Stack Trace Enrichment:** Automatically captures and includes relevant parts of the stack trace in your logs for better error diagnosis.
-- **Pluggable Logging Frameworks:** Supports multiple logging frameworks through adapter implementations. Currently supports:
-    - NLog
-    - Serilog
-- **Simplified Usage:** Provides a fluent API for setting context properties.
-- **JSON Serialization Extensions:** Includes handy extensions for serializing objects to JSON, useful for logging complex data structures.
-- **`Props` Class:** A dictionary-based class for managing contextual properties, with convenient initialization and disposal.
-
-## Project Structure
-
-The project is organized into the following folders:
-
-- **`LogCtx`:** The root folder containing the solution file and other configuration files.
-- **`LogCtxShared`:** Contains the core interfaces and classes that are shared between different logging framework adapters. This project is intended to be directly referenced by the host project.
-    - `ILogCtxLogger`: Defines the interface for logging implementations.
-    - `IScopeContext`: Defines the interface for managing contextual properties.
-    - `LogCtx`: The main class for setting and managing log context.
-    - `Props`: A dictionary class for storing log context properties.
-    - `JsonExtensions`: Provides extension methods for JSON serialization.
-- **`NLogShared`:** Contains the NLog adapter implementation. This project is intended to be directly referenced by the host project.
-    - `NLogCtx`: Implements `ILogCtxLogger` for NLog.
-    - `NLogScopeContext`: Implements `IScopeContext` for NLog.
-- **`SeriLogShared`:** Contains the Serilog adapter implementation. This project is intended to be directly referenced by the host project.
-    - `SeriLogCtx`: Implements `ILogCtxLogger` for Serilog.
-    - `SeriLogScopeContext`: Implements `IScopeContext` for Serilog.
-- **`Old`:**  Contains older versions or alternative implementations (likely deprecated).
-- **`SeriLogAdapterTests`:** Contains unit tests for the Serilog adapter.
-
-## Getting Started
-
-### Integration as a Sub-Repository
-
-To integrate LogCtx into your project:
-
-1. **Add as a Submodule:** In your project's root directory, run the following command:
-    ```bash
-    git submodule add <repository_url> LogCtx
-    git submodule init
-    git submodule update
-    ```
-    Replace `<repository_url>` with the URL of the LogCtx repository.
-
-2. **Reference Shared Projects:** In your host project, add project references to the desired shared projects:
-    - `LogCtxShared/LogCtxShared.projitems`
-    - `NLogShared/NLogShared.csproj` (if using NLog)
-    - `SeriLogShared/SeriLogShared.projitems` (if using Serilog)
-
-### Usage
-
-Here's a basic example of how to use LogCtx with the Serilog adapter:
-
+### **Use Everywhere**
 ```csharp
 using LogCtxShared;
-using SeriLogAdapter;
+using NLogShared;
 
-public class MyClass
+public class FileProcessor
 {
-    private readonly ILogCtxLogger _logger;
-
-    public MyClass()
+    public async Task ProcessFileAsync(string filePath)
     {
-        _logger = new SeriLogCtx();
-        _logger.ConfigureJson("Config/LogConfig.json"); // Or ConfigureXml for XML configuration
-    }
-
-    public void MyMethod(string data)
-    {
-        using (_logger.Ctx.Set(new Props { { "data", data } }))
+        // ✅ Each operation gets its own context
+        using var ctx = LogCtx.Set(new Props()
+            .Add("FilePath", filePath)
+            .Add("Operation", "ProcessFile"));
+            
+        LogCtx.Logger.Info("File processing started");
+        
+        try
         {
-            _logger.Info("Processing data.");
-            try
-            {
-                // Some operation that might throw an exception
-                throw new InvalidOperationException("Something went wrong!");
-            }
-            catch (Exception ex)
-            {
-                _logger.Fatal(ex, "An error occurred.");
-            }
+            var content = await File.ReadAllTextAsync(filePath);
+            ctx.Add("FileSize", content.Length);
+            
+            // Your logic here...
+            
+            LogCtx.Logger.Info("File processing completed");
+        }
+        catch (Exception ex)
+        {
+            ctx.Add("ErrorType", ex.GetType().Name);
+            LogCtx.Logger.Error(ex, "File processing failed");
+            throw;
         }
     }
 }
 ```
 
-**Explanation:**
+## 🏗️ **Architecture**
 
-1. **Create a Logger Instance:** Instantiate the desired logger adapter (e.g., `SeriLogCtx`).
-2. **Configure the Logger:** Call `ConfigureJson` or `ConfigureXml` to load the logging configuration from a file.
-3. **Set Context:** Use `_logger.Ctx.Set()` to establish a logging context. You can pass a `Props` object containing key-value pairs for your contextual information. The `using` statement ensures the context is cleared when the block finishes.
-4. **Log Messages:** Use the `_logger` methods (e.g., `Info`, `Error`, `Fatal`) to log messages. The contextual properties set in the `Set()` method will be included in these log messages.
-5. **Automatic Source Information:** The `LogCtx` automatically captures the file name, method name, and line number where the `Set()` method is called and includes it in the log context under the keys `CTX_FILE`, `CTX_METHOD`, and `CTX_LINE` (or collectively under `CTX_SRC` and `CTX_STRACE`).
+LogCtx consists of **3 shared projects** that integrate via Git submodule:
 
-**Using the `Props` class:**
-
-The `Props` class simplifies the creation of contextual properties. You can initialize it with an anonymous object or use the dictionary initializer:
-
-```csharp
-using (_logger.Ctx.Set(new Props { { "user_id", 123 }, { "correlation_id", Guid.NewGuid() } }))
-{
-    _logger.Info("User accessed resource.");
-}
-
-using (_logger.Ctx.Set(new Props("important", "value", 42)))
-{
-    _logger.Debug("More details.");
-}
+```
+LogCtx/
+├── LogCtxShared/           # ✅ Core interfaces (ALWAYS include)
+│   ├── LogCtx.cs          # Main context manager
+│   ├── Props.cs           # Fluent property builder
+│   ├── ILogCtxLogger.cs   # Logger abstraction
+│   └── JsonExtensions.cs  # JSON serialization helpers
+├── NLogShared/            # ✅ NLog adapter (PRIMARY)
+│   └── CtxLogger.cs       # NLog implementation
+├── SeriLogShared/         # ✅ Serilog adapter (SECONDARY)
+│   └── CtxLogger.cs       # Serilog implementation
+└── Documentation/         # ✅ AI-optimized guides
+    ├── AI-Code-Generation-Guide.md
+    ├── SEQ-Configuration-Guide.md
+    └── Integration-Guide.md
 ```
 
-**JSON Extensions:**
+## 🚀 **Integration Methods**
 
-The `JsonExtensions` class provides helpful methods for serializing objects to JSON for logging:
+### **Method 1: Git Submodule (Recommended)**
 
-```csharp
-var myObject = new { Id = 1, Name = "Example" };
-_logger.Info($"Object details: {myObject.AsJson(true)}"); // Indented JSON
-_logger.Debug($"Embedded JSON in PlantUML: {myObject.AsJsonEmbedded()}");
+```bash
+# Add LogCtx as submodule
+git submodule add https://github.com/zzt108/LogCtx.git LogCtx
+git submodule update --init --recursive
+
+# Reference in your .csproj
+# <Import Project="LogCtx\LogCtxShared\LogCtxShared.projitems" Label="Shared" />
+# <Import Project="LogCtx\NLogShared\NLogShared.projitems" Label="Shared" />
 ```
 
-## Adapters
+### **Method 2: Direct Integration**
+See [Documentation/Step-0-Integration-Guide.md](Documentation/Step-0-Integration-Guide.md) for complete setup instructions.
 
-### NLog
+## 🎪 **SEQ Integration (Primary Target)**
 
-To use LogCtx with NLog, reference the `NLogShared.csproj` project from your host project and use the `NLogCtx` class:
+LogCtx is **optimized for SEQ** structured logging with rich contextual data:
+
+### **NLog.config for SEQ**
+```xml
+<?xml version="1.0" encoding="utf-8" ?>
+<nlog xmlns="http://www.nlog-project.org/schemas/NLog.xsd">
+  <targets>
+    <target xsi:type="Seq" 
+            name="seq" 
+            serverUrl="http://localhost:5341"
+            compactMode="true">
+      <property name="Application" value="YourApp" />
+      <property name="Environment" value="Development" />
+      <property name="MachineName" value="${machinename}" />
+    </target>
+    
+    <target xsi:type="Console" 
+            name="console"
+            layout="${time} [${level}] ${logger}: ${message}" />
+  </targets>
+  
+  <rules>
+    <logger name="*" minlevel="Debug" writeTo="seq" />
+    <logger name="*" minlevel="Info" writeTo="console" />
+  </rules>
+</nlog>
+```
+
+### **SEQ Query Examples**
+```sql
+-- Find all file processing operations
+Operation = 'ProcessFile'
+
+-- Performance analysis  
+Duration > 1000
+
+-- Error tracking by type
+ErrorType is not null | group by ErrorType | sort by count desc
+```
+
+## 🤖 **AI Assistant Ready**
+
+LogCtx is designed for **AI-assisted development** with comprehensive patterns and examples:
+
+- **GitHub Copilot**: Auto-completes LogCtx patterns
+- **ChatGPT/Claude**: Follows structured logging conventions  
+- **Perplexity**: Deep research with copy-paste ready code
+- **Gemini**: Contextual code generation
+
+See [Documentation/AI-Code-Generation-Guide.md](Documentation/AI-Code-Generation-Guide.md) for detailed AI integration patterns.
+
+## 📚 **Documentation**
+
+### **🚀 Getting Started**
+- [Step 0: Integration Guide](Documentation/Step-0-Integration-Guide.md) - Git submodule setup
+- [AI Code Generation Guide](Documentation/AI-Code-Generation-Guide.md) - Copy-paste patterns for AI assistants
+- [SEQ Configuration Guide](Documentation/SEQ-Configuration-Guide.md) - Complete SEQ setup
+
+### **📖 Reference**
+- [API Complete Reference](Documentation/API-Complete-Reference.md) - All methods and classes
+- [Usage Patterns Examples](Documentation/Usage-Patterns-Examples.md) - Real-world examples
+- [NLog Configuration Examples](Documentation/NLog-Configuration-Examples.md) - Multiple environments
+
+### **🛠️ Advanced**
+- [Best Practices](Documentation/Best-Practices.md) - Do's and don'ts
+- [Testing Patterns](Documentation/Testing-Patterns.md) - NUnit/Shouldly integration
+- [Troubleshooting](Documentation/Troubleshooting.md) - Common issues and solutions
+- [Migration Guide](Documentation/Migration-From-Direct-NLog.md) - Upgrade existing code
+
+## 🏆 **Real-World Usage**
+
+LogCtx is battle-tested in production applications:
+
+### **VecTool Project**
+- **7-project modular architecture** with centralized logging
+- **Git workflow automation** with structured audit trails  
+- **Unit test execution** with detailed context capture
+- **Recent files management** with performance tracking
+- **SEQ dashboard** for operational monitoring
+
+### **Key Benefits Demonstrated**
+- ✅ **Zero-config initialization** that never throws exceptions
+- ✅ **Automatic source location** capture (file:line) 
+- ✅ **Fluent property building** with method chaining
+- ✅ **Exception context enrichment** preserving stack traces
+- ✅ **SEQ query optimization** with structured properties
+- ✅ **Test-friendly patterns** with NUnit/Shouldly
+
+## 🧪 **Testing Integration**
 
 ```csharp
-using LogCtxShared;
-using NLogAdapter;
-
-public class MyNLogClass
+[TestFixture]
+public class FileProcessorTests
 {
-    private readonly ILogCtxLogger _logger;
-
-    public MyNLogClass()
+    [OneTimeSetUp]
+    public void Setup()
     {
-        _logger = new NLogCtx();
-        _logger.ConfigureXml("NLog.config");
+        // ✅ Initialize LogCtx once per test fixture
+        FailsafeLogger.Initialize();
     }
-
-    public void MyMethod()
+    
+    [Test]
+    public void ProcessFile_ValidInput_ShouldSucceed()
     {
-        using (_logger.Ctx.Set(new Props { { "operation", "calculate" } }))
-        {
-            _logger.Info("Starting calculation.");
-        }
+        // Arrange
+        using var testCtx = LogCtx.Set(new Props()
+            .Add("TestMethod", nameof(ProcessFile_ValidInput_ShouldSucceed))
+            .Add("Category", "FileProcessing"));
+            
+        LogCtx.Logger.Info("Test execution started");
+        
+        // Act & Assert
+        var processor = new FileProcessor();
+        var result = processor.ProcessFile("test.txt");
+        
+        result.Should().BeTrue();
+        LogCtx.Logger.Info("Test execution completed");
     }
 }
 ```
 
-Make sure you have a valid `NLog.config` file configured for your logging needs within your host project.
+## 🔮 **Roadmap**
 
-### Serilog
+### **Phase 1: Documentation Complete** *(Current)*
+- ✅ AI-optimized documentation  
+- ✅ SEQ integration guides
+- ✅ Real-world usage patterns
+- 🔄 API reference completion
 
-To use LogCtx with Serilog, reference the `SeriLogShared.projitems` file from your host project and use the `SeriLogCtx` class (as shown in the Getting Started example).
+### **Phase 2: WinUI 3 Support** *(Planned)*
+- 📋 Dependency injection integration
+- 📋 WinUI 3-specific logging targets  
+- 📋 Application lifecycle logging
+- 📋 Enhanced SEQ configuration helpers
 
-Ensure your Serilog configuration is set up correctly, either through JSON, XML, or code within your host project.
+*See [WinUI3-Upgrade-Plan.md](Documentation/WinUI3-Upgrade-Plan.md) for detailed Phase 2 planning.*
 
-## Contributing
+## ⚡ **Performance**
 
-Contributions to LogCtx are welcome! If you find a bug or have a suggestion for improvement, please open an issue or submit a pull request.
+LogCtx is designed for **high-performance applications**:
 
-## License
+- **Failsafe initialization** - Never throws, always works
+- **Minimal memory allocation** - Reuses context objects
+- **Async-friendly** - No blocking operations
+- **SEQ-optimized** - Structured properties for fast queries
+- **Source location caching** - Compile-time optimizations
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE-2.0.txt) file for details.
+## 🤝 **Contributing**
+
+This is an **internal library** for personal projects. The codebase follows strict conventions:
+
+- **English-only** code, variables, and comments
+- **SOLID principles** throughout the architecture  
+- **NUnit + Shouldly** for all testing
+- **Structured logging** as a first-class citizen
+- **AI assistant compatibility** in all documentation
+
+## 📜 **License**
+
+Internal use only. Not for external distribution.
+
+---
+
+## 🎯 **Key Takeaways**
+
+1. **Initialize once**: `FailsafeLogger.Initialize("NLog.config")` in Program.cs
+2. **Context per operation**: `using var ctx = LogCtx.Set(...)` for each significant action
+3. **Enrich before logging**: Add properties to context, then log
+4. **SEQ integration**: Optimized for structured queries and dashboards
+5. **AI-ready**: Comprehensive patterns for coding assistants
+
+**Start here**: [Documentation/AI-Code-Generation-Guide.md](Documentation/AI-Code-Generation-Guide.md) 🚀
