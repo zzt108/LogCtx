@@ -1,265 +1,255 @@
 # LogCtx - Structured Logging Library
-*Contextual logging with automatic source location capture for .NET applications*
 
-[![.NET 8.0](https://img.shields.io/badge/.NET-8.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/8.0)
-[![NLog](https://img.shields.io/badge/NLog-5.3.4-green.svg)](https://nlog-project.org/)
-[![SEQ](https://img.shields.io/badge/SEQ-Ready-orange.svg)](https://datalust.co/seq)
+**Battle-tested structured logging for .NET applications with zero-config initialization and automatic context capture.**
 
-## 🎯 **Quick Start**
+LogCtx is a production-ready logging library that provides structured logging capabilities with automatic source location capture, fluent property building, and seamless SEQ integration. It's designed to never throw exceptions during initialization or logging operations.
 
-LogCtx provides **structured logging with contextual properties** that automatically capture source location (file, method, line) and allow you to enrich logs with custom data. Perfect for **SEQ integration** and AI-assisted development.
+---
 
-### **Initialize Once**
+## 🚀 **Quick Start**
+
+### **1. Installation & Setup**
+
+⚠️ **MANDATORY INITIALIZATION** - Without this, LogCtx.Logger will be null and crash your application!
+
 ```csharp
-// Program.cs or App.xaml.cs - Initialize once per application
-using NLogShared;
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
+using NLog;
+
+// Initialize robust, non-throwing logging (MUST be called first!)
 FailsafeLogger.Initialize("NLog.config");
 ```
 
-### **Use Everywhere**
-```csharp
-using LogCtxShared;
-using NLogShared;
+### **2. Basic Usage**
 
-public class FileProcessor
+```csharp
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
+
+// Simple logging with automatic context
+using var ctx = LogCtx.Set(); // ✅ Captures file/line automatically
+ctx.AddProperty("UserId", 12345);
+ctx.AddProperty("Operation", "UserLogin");
+LogCtx.Logger.Information("User logged in successfully", ctx);
+```
+
+### **3. Exception Handling**
+
+```csharp
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
+
+try
 {
-    public async Task ProcessFileAsync(string filePath)
+    // Your application logic
+    ProcessUserData(userData);
+}
+catch (Exception ex)
+{
+    using var errorCtx = LogCtx.Set();
+    errorCtx.AddProperty("UserId", userData.Id);
+    errorCtx.AddProperty("Operation", "ProcessUserData");
+    errorCtx.AddProperty("ErrorType", ex.GetType().Name);
+    LogCtx.Logger.Error("User data processing failed", ex, errorCtx);
+    throw;
+}
+```
+
+---
+
+## 🎯 **Key Features**
+
+### **Zero-Config Initialization**
+- ✅ **Never throws exceptions** during initialization
+- ✅ **Graceful fallback** when configuration is missing
+- ✅ **Thread-safe** initialization
+
+### **Automatic Context Capture**
+- ✅ **File and line number** captured automatically
+- ✅ **Method name** and **class name** resolution
+- ✅ **Timestamp** and **thread ID** tracking
+
+### **Fluent Property Building**
+- ✅ **Method chaining** for readable code
+- ✅ **Type-safe** property addition
+- ✅ **Structured data** optimization for SEQ queries
+
+### **Production-Ready**
+- ✅ **Battle-tested** in enterprise applications
+- ✅ **High-performance** with minimal overhead
+- ✅ **Memory efficient** context management
+
+---
+
+## 📋 **Complete Application Example**
+
+```csharp
+// ✅ COMPLETE APPLICATION SETUP
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
+using NLog;
+
+namespace YourApplication
+{
+    internal static class Program
     {
-        // ✅ Each operation gets its own context
-        using var ctx = LogCtx.Set(new Props()
-            .Add("FilePath", filePath)
-            .Add("Operation", "ProcessFile"));
-            
-        LogCtx.Logger.Info("File processing started");
-        
-        try
+        [STAThread]
+        private static void Main()
         {
-            var content = await File.ReadAllTextAsync(filePath);
-            ctx.Add("FileSize", content.Length);
+            // ⚠️ MANDATORY - Initialize logging first!
+            FailsafeLogger.Initialize("NLog.config");
             
-            // Your logic here...
+            // Application startup context
+            using var startupCtx = LogCtx.Set();
+            startupCtx.AddProperty("ApplicationName", "YourApp");
+            startupCtx.AddProperty("Version", "1.0.0");
+            LogCtx.Logger.Information("Application starting", startupCtx);
             
-            LogCtx.Logger.Info("File processing completed");
-        }
-        catch (Exception ex)
-        {
-            ctx.Add("ErrorType", ex.GetType().Name);
-            LogCtx.Logger.Error(ex, "File processing failed");
-            throw;
+            try
+            {
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Application.Run(new MainForm());
+            }
+            catch (Exception ex)
+            {
+                using var errorCtx = LogCtx.Set();
+                errorCtx.AddProperty("ApplicationName", "YourApp");
+                errorCtx.AddProperty("ErrorType", ex.GetType().Name);
+                LogCtx.Logger.Fatal("Application failed to start", ex, errorCtx);
+                throw;
+            }
+            finally
+            {
+                using var shutdownCtx = LogCtx.Set();
+                shutdownCtx.AddProperty("ApplicationName", "YourApp");
+                LogCtx.Logger.Information("Application shutting down", shutdownCtx);
+            }
         }
     }
 }
 ```
 
-## 🏗️ **Architecture**
+---
 
-LogCtx consists of **3 shared projects** that integrate via Git submodule:
+## 🧪 **Test Integration**
 
-```
-LogCtx/
-├── LogCtxShared/           # ✅ Core interfaces (ALWAYS include)
-│   ├── LogCtx.cs          # Main context manager
-│   ├── Props.cs           # Fluent property builder
-│   ├── ILogCtxLogger.cs   # Logger abstraction
-│   └── JsonExtensions.cs  # JSON serialization helpers
-├── NLogShared/            # ✅ NLog adapter (PRIMARY)
-│   └── CtxLogger.cs       # NLog implementation
-├── SeriLogShared/         # ✅ Serilog adapter (SECONDARY)
-│   └── CtxLogger.cs       # Serilog implementation
-└── Documentation/         # ✅ AI-optimized guides
-    ├── AI-Code-Generation-Guide.md
-    ├── SEQ-Configuration-Guide.md
-    └── Integration-Guide.md
-```
-
-## 🚀 **Integration Methods**
-
-### **Method 1: Git Submodule (Recommended)**
-
-```bash
-# Add LogCtx as submodule
-git submodule add https://github.com/zzt108/LogCtx.git LogCtx
-git submodule update --init --recursive
-
-# Reference in your .csproj
-# <Import Project="LogCtx\LogCtxShared\LogCtxShared.projitems" Label="Shared" />
-# <Import Project="LogCtx\NLogShared\NLogShared.projitems" Label="Shared" />
-```
-
-### **Method 2: Direct Integration**
-See [Documentation/Step-0-Integration-Guide.md](Documentation/Step-0-Integration-Guide.md) for complete setup instructions.
-
-## 🎪 **SEQ Integration (Primary Target)**
-
-LogCtx is **optimized for SEQ** structured logging with rich contextual data:
-
-### **NLog.config for SEQ**
-```xml
-<?xml version="1.0" encoding="utf-8" ?>
-<nlog xmlns="http://www.nlog-project.org/schemas/NLog.xsd">
-  <targets>
-    <target xsi:type="Seq" 
-            name="seq" 
-            serverUrl="http://localhost:5341"
-            compactMode="true">
-      <property name="Application" value="YourApp" />
-      <property name="Environment" value="Development" />
-      <property name="MachineName" value="${machinename}" />
-    </target>
-    
-    <target xsi:type="Console" 
-            name="console"
-            layout="${time} [${level}] ${logger}: ${message}" />
-  </targets>
-  
-  <rules>
-    <logger name="*" minlevel="Debug" writeTo="seq" />
-    <logger name="*" minlevel="Info" writeTo="console" />
-  </rules>
-</nlog>
-```
-
-### **SEQ Query Examples**
-```sql
--- Find all file processing operations
-Operation = 'ProcessFile'
-
--- Performance analysis  
-Duration > 1000
-
--- Error tracking by type
-ErrorType is not null | group by ErrorType | sort by count desc
-```
-
-## 🤖 **AI Assistant Ready**
-
-LogCtx is designed for **AI-assisted development** with comprehensive patterns and examples:
-
-- **GitHub Copilot**: Auto-completes LogCtx patterns
-- **ChatGPT/Claude**: Follows structured logging conventions  
-- **Perplexity**: Deep research with copy-paste ready code
-- **Gemini**: Contextual code generation
-
-See [Documentation/AI-Code-Generation-Guide.md](Documentation/AI-Code-Generation-Guide.md) for detailed AI integration patterns.
-
-## 📚 **Documentation**
-
-### **🚀 Getting Started**
-- [Step 0: Integration Guide](Documentation/Step-0-Integration-Guide.md) - Git submodule setup
-- [AI Code Generation Guide](Documentation/AI-Code-Generation-Guide.md) - Copy-paste patterns for AI assistants
-- [SEQ Configuration Guide](Documentation/SEQ-Configuration-Guide.md) - Complete SEQ setup
-
-### **📖 Reference**
-- [API Complete Reference](Documentation/API-Complete-Reference.md) - All methods and classes
-- [Usage Patterns Examples](Documentation/Usage-Patterns-Examples.md) - Real-world examples
-- [NLog Configuration Examples](Documentation/NLog-Configuration-Examples.md) - Multiple environments
-
-### **🛠️ Advanced**
-- [Best Practices](Documentation/Best-Practices.md) - Do's and don'ts
-- [Testing Patterns](Documentation/Testing-Patterns.md) - NUnit/Shouldly integration
-- [Troubleshooting](Documentation/Troubleshooting.md) - Common issues and solutions
-- [Migration Guide](Documentation/Migration-From-Direct-NLog.md) - Upgrade existing code
-
-## 🏆 **Real-World Usage**
-
-LogCtx is battle-tested in production applications:
-
-### **VecTool Project**
-- **7-project modular architecture** with centralized logging
-- **Git workflow automation** with structured audit trails  
-- **Unit test execution** with detailed context capture
-- **Recent files management** with performance tracking
-- **SEQ dashboard** for operational monitoring
-
-### **Key Benefits Demonstrated**
-- ✅ **Zero-config initialization** that never throws exceptions
-- ✅ **Automatic source location** capture (file:line) 
-- ✅ **Fluent property building** with method chaining
-- ✅ **Exception context enrichment** preserving stack traces
-- ✅ **SEQ query optimization** with structured properties
-- ✅ **Test-friendly patterns** with NUnit/Shouldly
-
-## 🧪 **Testing Integration**
+### **Unit Test Setup**
 
 ```csharp
+using NUnit.Framework;
+using Shouldly;
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
+
 [TestFixture]
-public class FileProcessorTests
+public class YourServiceTests
 {
     [OneTimeSetUp]
-    public void Setup()
+    public void OneTimeSetup()
     {
-        // ✅ Initialize LogCtx once per test fixture
-        FailsafeLogger.Initialize();
+        // ⚠️ MANDATORY INITIALIZATION - Initialize once per test fixture
+        FailsafeLogger.Initialize("NLog.config");
     }
-    
+
     [Test]
     public void ProcessFile_ValidInput_ShouldSucceed()
     {
         // Arrange
-        using var testCtx = LogCtx.Set(new Props()
-            .Add("TestMethod", nameof(ProcessFile_ValidInput_ShouldSucceed))
-            .Add("Category", "FileProcessing"));
-            
-        LogCtx.Logger.Info("Test execution started");
-        
-        // Act & Assert
+        using var testCtx = LogCtx.Set();
+        testCtx.AddProperty("TestMethod", nameof(ProcessFile_ValidInput_ShouldSucceed));
+        testCtx.AddProperty("TestCategory", "FileProcessing");
+        LogCtx.Logger.Information("Test execution started", testCtx);
+
+        // Act
         var processor = new FileProcessor();
         var result = processor.ProcessFile("test.txt");
+
+        // Assert
+        result.ShouldBeTrue();
         
-        result.Should().BeTrue();
-        LogCtx.Logger.Info("Test execution completed");
+        LogCtx.Logger.Information("Test execution completed", testCtx);
     }
 }
 ```
 
-## 🔮 **Roadmap**
+---
 
-### **Phase 1: Documentation Complete** *(Current)*
-- ✅ AI-optimized documentation  
-- ✅ SEQ integration guides
-- ✅ Real-world usage patterns
-- 🔄 API reference completion
+## ⚙️ **Configuration**
 
-### **Phase 2: WinUI 3 Support** *(Planned)*
-- 📋 Dependency injection integration
-- 📋 WinUI 3-specific logging targets  
-- 📋 Application lifecycle logging
-- 📋 Enhanced SEQ configuration helpers
+### **NLog.config Example**
 
-*See [WinUI3-Upgrade-Plan.md](Documentation/WinUI3-Upgrade-Plan.md) for detailed Phase 2 planning.*
+```xml
+<?xml version="1.0" encoding="utf-8" ?>
+<nlog xmlns="http://www.nlog-project.org/schemas/NLog.xsd"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  
+  <targets>
+    <!-- Console output -->
+    <target xsi:type="Console" name="console"
+            layout="${longdate} ${level:uppercase=true} ${logger} ${message} ${exception:format=tostring}" />
+    
+    <!-- SEQ structured logging -->
+    <target xsi:type="Seq" name="seq" serverUrl="http://localhost:5341" apiKey="">
+      <property name="Application" value="YourApp" />
+      <property name="Environment" value="Development" />
+    </target>
+  </targets>
 
-## ⚡ **Performance**
-
-LogCtx is designed for **high-performance applications**:
-
-- **Failsafe initialization** - Never throws, always works
-- **Minimal memory allocation** - Reuses context objects
-- **Async-friendly** - No blocking operations
-- **SEQ-optimized** - Structured properties for fast queries
-- **Source location caching** - Compile-time optimizations
-
-## 🤝 **Contributing**
-
-This is an **internal library** for personal projects. The codebase follows strict conventions:
-
-- **English-only** code, variables, and comments
-- **SOLID principles** throughout the architecture  
-- **NUnit + Shouldly** for all testing
-- **Structured logging** as a first-class citizen
-- **AI assistant compatibility** in all documentation
-
-## 📜 **License**
-
-Internal use only. Not for external distribution.
+  <rules>
+    <logger name="*" minlevel="Debug" writeTo="console" />
+    <logger name="*" minlevel="Information" writeTo="seq" />
+  </rules>
+</nlog>
+```
 
 ---
 
-## 🎯 **Key Takeaways**
+## 🚨 **Critical Usage Notes**
 
-1. **Initialize once**: `FailsafeLogger.Initialize("NLog.config")` in Program.cs
-2. **Context per operation**: `using var ctx = LogCtx.Set(...)` for each significant action
-3. **Enrich before logging**: Add properties to context, then log
-4. **SEQ integration**: Optimized for structured queries and dashboards
-5. **AI-ready**: Comprehensive patterns for coding assistants
+### **MUST DO:**
+1. ✅ **Always call** `FailsafeLogger.Initialize("NLog.config")` first
+2. ✅ **Include both** `using NLogShared;` and `using LogCtxShared;`
+3. ✅ **Use `using` statements** with LogCtx.Set() for proper disposal
+4. ✅ **Initialize once** per application/test fixture
 
-**Start here**: [Documentation/AI-Code-Generation-Guide.md](Documentation/AI-Code-Generation-Guide.md) 🚀
+### **NEVER DO:**
+1. ❌ **Never call** `LogCtx.InitLogCtx()` (this method doesn't exist!)
+2. ❌ **Never omit** the required using statements
+3. ❌ **Never forget** to dispose LogCtx contexts
+4. ❌ **Never initialize** multiple times in the same application
+
+---
+
+## 🔗 **Additional Resources**
+
+- **[Step-0-Integration-Guide.md]** - Detailed integration walkthrough
+- **[AI-Code-Generation-Guide.md]** - AI-assisted development patterns
+- **[Usage-Patterns-Examples.md]** - Advanced usage examples
+- **[Performance-Guide.md]** - Optimization techniques
+
+---
+
+## 📊 **Real-World Usage**
+
+LogCtx is battle-tested in production applications:
+
+- **7-project modular architecture** with centralized logging
+- **Git workflow automation** with structured audit trails
+- **Unit test execution** with detailed context capture
+- **Recent files management** with performance tracking
+- **SEQ dashboard** for operational monitoring
+
+### **Key Benefits Demonstrated:**
+- ✅ **Zero crashes** from logging operations
+- ✅ **Rich structured data** for operational insights
+- ✅ **Seamless SEQ integration** for query optimization
+- ✅ **Test-friendly patterns** with NUnit/Shouldly
+- ✅ **High performance** with minimal overhead
+
+---
+
+**Version:** 0.3.1  
+**Last Updated:** October 2025  
+**Compatibility:** .NET 8.0+, NLog 6.0.4+

@@ -1,307 +1,404 @@
 # LogCtx AI Code Generation Guide
-*Optimized for AI coding assistants: GitHub Copilot, ChatGPT, Claude, Gemini, Perplexity*
 
-## 🎯 **Quick Start - Copy-Paste Ready**
+**AI-assisted development patterns for LogCtx structured logging - corrected for version 0.3.1**
 
-### **Basic LogCtx Usage Pattern**
+This guide provides AI-friendly patterns and examples for generating LogCtx-based logging code that follows best practices and avoids common pitfalls.
+
+---
+
+## 🚨 **CRITICAL: Correct Initialization Pattern**
+
+### **❌ WRONG - This Will Crash Your Application:**
 ```csharp
-using LogCtx;
+// DON'T USE THIS - LogCtx.InitLogCtx() DOESN'T EXIST!
+LogCtx.InitLogCtx(); // ❌ This method does not exist and will cause compilation errors
+```
+
+### **✅ CORRECT - Use This Pattern:**
+```csharp
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
 using NLog;
 
-public class ExampleService
-{
-    private static readonly Logger log = LogManager.GetCurrentClassLogger();
+// ⚠️ MANDATORY INITIALIZATION - This is the ONLY correct way!
+FailsafeLogger.Initialize("NLog.config");
+```
 
-    public async Task ProcessFileAsync(string filePath)
+---
+
+## 🤖 **AI Code Generation Templates**
+
+### **Template 1: Application Startup**
+
+```csharp
+// ✅ AI TEMPLATE - Application Main Method
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
+using NLog;
+
+namespace {APPLICATION_NAME}
+{
+    internal static class Program
     {
-        // ✅ Step 1: Wrap significant actions in LogCtx.Set
-        using var ctx1 = LogCtx.Set(); // Captures file/line automatically
-        LogCtx.LogInformation("STEP 1: Starting file processing", ctx1);
-        
+        [STAThread]
+        private static void Main()
+        {
+            // ⚠️ MANDATORY - Initialize logging FIRST!
+            FailsafeLogger.Initialize("NLog.config");
+            
+            // Application startup context
+            using var startupCtx = LogCtx.Set();
+            startupCtx.AddProperty("ApplicationName", "{APPLICATION_NAME}");
+            startupCtx.AddProperty("Version", "{VERSION}");
+            LogCtx.Logger.Information("Application starting", startupCtx);
+            
+            try
+            {
+                // Your application initialization code here
+                {APPLICATION_INIT_CODE}
+            }
+            catch (Exception ex)
+            {
+                using var errorCtx = LogCtx.Set();
+                errorCtx.AddProperty("ApplicationName", "{APPLICATION_NAME}");
+                errorCtx.AddProperty("ErrorType", ex.GetType().Name);
+                LogCtx.Logger.Fatal("Application startup failed", ex, errorCtx);
+                throw;
+            }
+        }
+    }
+}
+```
+
+### **Template 2: Service Method Logging**
+
+```csharp
+// ✅ AI TEMPLATE - Service Method with Logging
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
+
+public class {SERVICE_NAME}Service
+{
+    public async Task<{RETURN_TYPE}> {METHOD_NAME}Async({PARAMETERS})
+    {
+        // Step 1: Create method context with automatic source location
+        using var ctx = LogCtx.Set(); // ✅ Captures file/line automatically
+        ctx.AddProperty("ServiceName", "{SERVICE_NAME}");
+        ctx.AddProperty("Operation", "{METHOD_NAME}");
+        {PARAMETER_LOGGING} // Add method parameters as properties
+        LogCtx.Logger.Information("Operation started", ctx);
+
         try
         {
-            var content = await File.ReadAllTextAsync(filePath);
+            // Step 2: Business logic implementation
+            {BUSINESS_LOGIC}
             
-            // ✅ Step 2: New context for validation
-            using var ctx2 = LogCtx.Set();
-            ctx2.AddProperty("FileSize", content.Length);
-            ctx2.AddProperty("FilePath", filePath);
-            LogCtx.LogInformation("STEP 2: File loaded successfully", ctx2);
+            // Step 3: Success logging
+            using var successCtx = LogCtx.Set();
+            successCtx.AddProperty("ServiceName", "{SERVICE_NAME}");
+            successCtx.AddProperty("Operation", "{METHOD_NAME}");
+            {RESULT_LOGGING} // Add result properties
+            LogCtx.Logger.Information("Operation completed successfully", successCtx);
             
-            // Process content...
-            
+            return {RESULT};
         }
         catch (Exception ex)
         {
-            // ✅ Step 3: Error context with enrichment
-            using var ctxErr = LogCtx.Set();
-            ctxErr.AddProperty("FilePath", filePath);
-            ctxErr.AddProperty("Operation", "ProcessFile");
-            LogCtx.LogError("File processing failed", ex, ctxErr);
+            // Step 4: Error context with enrichment
+            using var errorCtx = LogCtx.Set();
+            errorCtx.AddProperty("ServiceName", "{SERVICE_NAME}");
+            errorCtx.AddProperty("Operation", "{METHOD_NAME}");
+            errorCtx.AddProperty("ErrorType", ex.GetType().Name);
+            {PARAMETER_LOGGING} // Re-add parameters for error context
+            LogCtx.Logger.Error("Operation failed", ex, errorCtx);
             throw;
         }
     }
 }
 ```
 
-## 🚀 **Essential Patterns**
+### **Template 3: Unit Test Setup**
 
-### **1. Per-Action Context Pattern**
 ```csharp
-// ❌ DON'T: Reuse contexts across operations
-using var ctx = LogCtx.Set();
-LogCtx.LogInformation("Step 1", ctx);
-DoSomething();
-LogCtx.LogInformation("Step 2", ctx); // Wrong - different location!
+// ✅ AI TEMPLATE - Unit Test Class
+using NUnit.Framework;
+using Shouldly;
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
 
-// ✅ DO: Fresh context per significant step
-using var ctx1 = LogCtx.Set();
-LogCtx.LogInformation("Step 1: Starting validation", ctx1);
-
-DoSomething();
-
-using var ctx2 = LogCtx.Set(); 
-LogCtx.LogInformation("Step 2: Validation complete", ctx2);
-```
-
-### **2. Loop/Batch Processing Pattern**
-```csharp
-public async Task ProcessBatchAsync(List<string> items)
-{
-    using var batchCtx = LogCtx.Set();
-    batchCtx.AddProperty("BatchSize", items.Count);
-    LogCtx.LogInformation("Starting batch processing", batchCtx);
-    
-    foreach (var item in items)
-    {
-        // ✅ Nested context for each item
-        using var itemCtx = LogCtx.Set();
-        itemCtx.AddProperty("Item", item);
-        itemCtx.AddProperty("BatchSize", items.Count);
-        
-        try
-        {
-            await ProcessSingleItemAsync(item);
-            LogCtx.LogDebug("Item processed successfully", itemCtx);
-        }
-        catch (Exception ex)
-        {
-            LogCtx.LogError("Item processing failed", ex, itemCtx);
-            // Continue with next item...
-        }
-    }
-}
-```
-
-### **3. Error Handling with Context**
-```csharp
-public async Task<bool> TryOperationAsync(string parameter)
-{
-    using var ctx = LogCtx.Set();
-    ctx.AddProperty("Parameter", parameter);
-    ctx.AddProperty("Operation", nameof(TryOperationAsync));
-    
-    try
-    {
-        LogCtx.LogInformation("Operation starting", ctx);
-        
-        // Your logic here...
-        await SomeRiskyOperationAsync(parameter);
-        
-        LogCtx.LogInformation("Operation completed successfully", ctx);
-        return true;
-    }
-    catch (TimeoutException ex)
-    {
-        ctx.AddProperty("TimeoutSeconds", ex.Data["Timeout"]);
-        LogCtx.LogWarning("Operation timed out", ex, ctx);
-        return false;
-    }
-    catch (Exception ex)
-    {
-        ctx.AddProperty("ErrorType", ex.GetType().Name);
-        LogCtx.LogError("Operation failed unexpectedly", ex, ctx);
-        return false;
-    }
-}
-```
-
-### **4. Testing Pattern with LogCtx**
-```csharp
 [TestFixture]
-public class ServiceTests
+public class {TEST_CLASS_NAME}
 {
-    [SetUp]
-    public void Setup()
+    [OneTimeSetUp]
+    public void OneTimeSetup()
     {
-        // ✅ Initialize LogCtx once per test fixture
-        LogCtx.InitLogCtx();
+        // ⚠️ MANDATORY INITIALIZATION - Initialize once per test fixture
+        FailsafeLogger.Initialize("NLog.config");
     }
-    
+
     [Test]
-    public async Task ProcessFile_ValidInput_ShouldSucceed()
+    public void {TEST_METHOD_NAME}()
     {
         // Arrange
         using var testCtx = LogCtx.Set();
-        testCtx.AddProperty("TestMethod", nameof(ProcessFile_ValidInput_ShouldSucceed));
-        LogCtx.LogInformation("Test starting", testCtx);
-        
-        var service = new FileProcessorService();
-        var testFile = "test-file.txt";
-        
-        // Act
-        var result = await service.ProcessFileAsync(testFile);
-        
-        // Assert
-        result.ShouldNotBeNull();
-        result.IsSuccess.ShouldBeTrue();
-        
-        LogCtx.LogInformation("Test completed successfully", testCtx);
+        testCtx.AddProperty("TestClass", nameof({TEST_CLASS_NAME}));
+        testCtx.AddProperty("TestMethod", nameof({TEST_METHOD_NAME}));
+        testCtx.AddProperty("TestCategory", "{TEST_CATEGORY}");
+        LogCtx.Logger.Information("Test execution started", testCtx);
+
+        try
+        {
+            // Act
+            {TEST_ACTIONS}
+
+            // Assert
+            {ASSERTIONS}
+            
+            LogCtx.Logger.Information("Test execution completed successfully", testCtx);
+        }
+        catch (Exception ex)
+        {
+            using var errorCtx = LogCtx.Set();
+            errorCtx.AddProperty("TestClass", nameof({TEST_CLASS_NAME}));
+            errorCtx.AddProperty("TestMethod", nameof({TEST_METHOD_NAME}));
+            errorCtx.AddProperty("ErrorType", ex.GetType().Name);
+            LogCtx.Logger.Error("Test execution failed", ex, errorCtx);
+            throw;
+        }
     }
 }
 ```
 
-## 🎯 **SEQ Integration (Primary Target)**
+### **Template 4: File Processing with Context**
 
-### **NLog.config for SEQ**
-```xml
-<?xml version="1.0" encoding="utf-8" ?>
-<nlog xmlns="http://www.nlog-project.org/schemas/NLog.xsd"
-      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  
-  <targets>
-    <!-- SEQ Target with structured logging -->
-    <target xsi:type="Seq" 
-            name="seq" 
-            serverUrl="http://localhost:5341"
-            apiKey="${environment:SEQ_API_KEY}"
-            compactMode="true">
-      
-      <property name="Application" value="YourAppName" />
-      <property name="Environment" value="${environment:ASPNETCORE_ENVIRONMENT:default=Development}" />
-      <property name="MachineName" value="${machinename}" />
-      <property name="ProcessId" value="${processid}" />
-      
-    </target>
-    
-    <!-- Console fallback -->
-    <target xsi:type="Console" 
-            name="console"
-            layout="${time} [${level:uppercase=true}] ${logger}: ${message} ${exception:format=tostring}" />
-  </targets>
-  
-  <rules>
-    <logger name="*" minlevel="Debug" writeTo="seq" />
-    <logger name="*" minlevel="Info" writeTo="console" />
-  </rules>
-  
-</nlog>
-```
-
-### **Program.cs Initialization**
 ```csharp
-using LogCtx;
-using NLog;
+// ✅ AI TEMPLATE - File Processing with Rich Context
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
 
-var builder = WebApplication.CreateBuilder(args);
+public class {PROCESSOR_NAME}
+{
+    public async Task<bool> ProcessFileAsync(string filePath)
+    {
+        // Step 1: File operation context
+        using var ctx = LogCtx.Set(); // ✅ Captures file/line automatically
+        ctx.AddProperty("FilePath", filePath);
+        ctx.AddProperty("Operation", "ProcessFile");
+        LogCtx.Logger.Information("File processing started", ctx);
 
-// ✅ Initialize LogCtx early in application lifecycle
-LogCtx.InitLogCtx();
+        try
+        {
+            // Step 2: File validation
+            if (!File.Exists(filePath))
+            {
+                using var notFoundCtx = LogCtx.Set();
+                notFoundCtx.AddProperty("FilePath", filePath);
+                notFoundCtx.AddProperty("Operation", "ProcessFile");
+                LogCtx.Logger.Warning("File not found", notFoundCtx);
+                return false;
+            }
 
-// Configure NLog
-LogManager.Configuration = new NLogLoggingConfiguration(builder.Configuration.GetSection("NLog"));
+            // Step 3: File loading with metrics
+            var content = await File.ReadAllTextAsync(filePath);
+            using var loadedCtx = LogCtx.Set();
+            loadedCtx.AddProperty("FilePath", filePath);
+            loadedCtx.AddProperty("FileSize", content.Length);
+            loadedCtx.AddProperty("Operation", "ProcessFile");
+            LogCtx.Logger.Information("File loaded successfully", loadedCtx);
 
-var app = builder.Build();
+            // Step 4: Processing logic
+            {PROCESSING_LOGIC}
 
-// ✅ Log application startup with context
-using var startupCtx = LogCtx.Set();
-startupCtx.AddProperty("Environment", builder.Environment.EnvironmentName);
-startupCtx.AddProperty("ApplicationName", builder.Environment.ApplicationName);
-LogCtx.LogInformation("Application starting up", startupCtx);
+            // Step 5: Success metrics
+            using var successCtx = LogCtx.Set();
+            successCtx.AddProperty("FilePath", filePath);
+            successCtx.AddProperty("Operation", "ProcessFile");
+            successCtx.AddProperty("ProcessingResult", "Success");
+            LogCtx.Logger.Information("File processing completed", successCtx);
 
-app.Run();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            // Step 6: Comprehensive error context
+            using var errorCtx = LogCtx.Set();
+            errorCtx.AddProperty("FilePath", filePath);
+            errorCtx.AddProperty("Operation", "ProcessFile");
+            errorCtx.AddProperty("ErrorType", ex.GetType().Name);
+            errorCtx.AddProperty("ProcessingResult", "Failed");
+            LogCtx.Logger.Error("File processing failed", ex, errorCtx);
+            throw;
+        }
+    }
+}
 ```
-
-## 🔧 **Common Property Patterns**
-
-### **Standard Properties to Add**
-```csharp
-// ✅ File operations
-ctx.AddProperty("FilePath", filePath);
-ctx.AddProperty("FileSize", fileInfo.Length);
-ctx.AddProperty("Operation", "FileRead");
-
-// ✅ Network operations  
-ctx.AddProperty("Url", requestUrl);
-ctx.AddProperty("HttpMethod", "GET");
-ctx.AddProperty("TimeoutMs", timeoutMilliseconds);
-
-// ✅ Database operations
-ctx.AddProperty("TableName", "Users");
-ctx.AddProperty("RecordId", userId);
-ctx.AddProperty("QueryDuration", stopwatch.ElapsedMilliseconds);
-
-// ✅ User context
-ctx.AddProperty("UserId", currentUser.Id);
-ctx.AddProperty("UserRole", currentUser.Role);
-ctx.AddProperty("SessionId", sessionContext.Id);
-
-// ✅ Performance tracking
-ctx.AddProperty("ExecutionTimeMs", stopwatch.ElapsedMilliseconds);
-ctx.AddProperty("ItemCount", items.Count);
-ctx.AddProperty("BatchSize", batchSize);
-```
-
-## ⚠️ **Critical Don'ts**
-
-### **❌ DON'T: Direct NLog Usage**
-```csharp
-// ❌ WRONG: Direct NLog calls lose LogCtx benefits
-private static readonly Logger log = LogManager.GetCurrentClassLogger();
-log.Info("Something happened"); // No context, no source location
-```
-
-### **❌ DON'T: Context Reuse**  
-```csharp
-// ❌ WRONG: Reusing context across different operations
-using var ctx = LogCtx.Set();
-LogCtx.LogInfo("Step 1", ctx);
-DoSomething();
-LogCtx.LogInfo("Step 2", ctx); // Wrong file/line captured!
-```
-
-### **❌ DON'T: Empty Contexts**
-```csharp
-// ❌ WRONG: Not enriching context with useful data
-using var ctx = LogCtx.Set();
-LogCtx.LogInfo("Processing complete", ctx); // No context about WHAT was processed
-```
-
-## ✅ **Best Practices Summary**
-
-1. **One Context Per Action**: `using var ctx = LogCtx.Set()` for each significant step
-2. **Enrich Before Logging**: Always add relevant properties before logging
-3. **Initialize Once**: Call `LogCtx.InitLogCtx()` once per application/test fixture
-4. **Structured Properties**: Use meaningful property names and values
-5. **Exception Context**: Always add context properties before logging errors
-6. **Consistent Naming**: Use PascalCase for property names
-7. **Performance Data**: Include timing and count information where relevant
-
-## 🎯 **AI Assistant Integration Tips**
-
-### **For GitHub Copilot**
-- Type `using var ctx = LogCtx.Set();` and Copilot will suggest the logging pattern
-- Start method names with logged actions: `ProcessFile`, `ValidateData`, `SendRequest`
-
-### **For ChatGPT/Claude/Gemini**
-- Share this guide and say: "Follow LogCtx patterns from the guide"
-- Ask for: "Generate LogCtx-compliant service method for [operation]"
-
-### **For Code Reviews**
-- Check: Every significant operation has its own `LogCtx.Set()`
-- Check: Context properties are added before logging
-- Check: Error contexts include operation details
 
 ---
 
-**Confidence Level: 10/10** - This guide covers all essential LogCtx patterns for AI-assisted development! 🎯
+## 🎯 **AI Generation Rules**
+
+### **MANDATORY Requirements:**
+1. ✅ **Always include both using statements:**
+   ```csharp
+   using NLogShared;   // Required for FailsafeLogger
+   using LogCtxShared; // Required for LogCtx classes
+   ```
+
+2. ✅ **Always use correct initialization:**
+   ```csharp
+   FailsafeLogger.Initialize("NLog.config");
+   ```
+
+3. ✅ **Always use `using` statements with LogCtx.Set():**
+   ```csharp
+   using var ctx = LogCtx.Set();
+   ```
+
+4. ✅ **Always add meaningful properties:**
+   ```csharp
+   ctx.AddProperty("Operation", "MethodName");
+   ctx.AddProperty("ComponentName", "ServiceName");
+   ```
+
+### **FORBIDDEN Patterns:**
+1. ❌ **Never use `LogCtx.InitLogCtx()`** - This method doesn't exist!
+2. ❌ **Never omit using statements** - Missing imports will cause null reference exceptions
+3. ❌ **Never forget disposal** - Always use `using var ctx = LogCtx.Set();`
+4. ❌ **Never initialize multiple times** - One initialization per application/test fixture
+
+---
+
+## 🔍 **Property Naming Conventions**
+
+### **Standard Properties:**
+```csharp
+ctx.AddProperty("ServiceName", "UserService");      // Service/component identifier
+ctx.AddProperty("Operation", "CreateUser");         // Method/operation name
+ctx.AddProperty("UserId", userId);                 // Business entity ID
+ctx.AddProperty("RequestId", requestId);           // Request correlation ID
+ctx.AddProperty("ErrorType", ex.GetType().Name);   // Exception type
+ctx.AddProperty("Duration", stopwatch.ElapsedMs);  // Performance metrics
+ctx.AddProperty("FileSize", content.Length);       // Resource metrics
+ctx.AddProperty("RecordCount", records.Count);     // Data volume metrics
+```
+
+### **Context-Specific Properties:**
+```csharp
+// File operations
+ctx.AddProperty("FilePath", filePath);
+ctx.AddProperty("FileSize", fileInfo.Length);
+ctx.AddProperty("FileExtension", Path.GetExtension(filePath));
+
+// Database operations
+ctx.AddProperty("TableName", "Users");
+ctx.AddProperty("QueryType", "SELECT");
+ctx.AddProperty("RowCount", resultSet.Count);
+
+// HTTP operations
+ctx.AddProperty("HttpMethod", "POST");
+ctx.AddProperty("Endpoint", "/api/users");
+ctx.AddProperty("StatusCode", 200);
+```
+
+---
+
+## ⚡ **Performance Guidelines**
+
+### **Efficient Context Usage:**
+```csharp
+// ✅ GOOD - Reuse context for related operations
+using var ctx = LogCtx.Set();
+ctx.AddProperty("Operation", "BulkInsert");
+ctx.AddProperty("BatchSize", items.Count);
+
+foreach (var batch in items.Batch(100))
+{
+    // Add batch-specific properties to existing context
+    ctx.AddProperty("BatchNumber", batchNumber++);
+    LogCtx.Logger.Information("Processing batch", ctx);
+    
+    // Process batch...
+}
+```
+
+### **Avoid Context Overhead:**
+```csharp
+// ❌ BAD - Creating new context for each iteration
+foreach (var item in items)
+{
+    using var itemCtx = LogCtx.Set(); // Expensive!
+    itemCtx.AddProperty("ItemId", item.Id);
+    LogCtx.Logger.Debug("Processing item", itemCtx);
+}
+
+// ✅ GOOD - Batch logging with single context
+using var batchCtx = LogCtx.Set();
+batchCtx.AddProperty("Operation", "ProcessItems");
+batchCtx.AddProperty("TotalItems", items.Count);
+LogCtx.Logger.Information("Batch processing started", batchCtx);
+
+// Process all items...
+LogCtx.Logger.Information("Batch processing completed", batchCtx);
+```
+
+---
+
+## 🧪 **Testing Patterns**
+
+### **Integration Test Setup:**
+```csharp
+[TestFixture]
+public class IntegrationTestBase
+{
+    [OneTimeSetUp]
+    public void GlobalSetup()
+    {
+        // ⚠️ Initialize logging for all integration tests
+        FailsafeLogger.Initialize("NLog.config");
+        
+        using var setupCtx = LogCtx.Set();
+        setupCtx.AddProperty("TestSuite", GetType().Name);
+        setupCtx.AddProperty("TestType", "Integration");
+        LogCtx.Logger.Information("Integration test suite started", setupCtx);
+    }
+
+    [OneTimeTearDown]
+    public void GlobalTearDown()
+    {
+        using var teardownCtx = LogCtx.Set();
+        teardownCtx.AddProperty("TestSuite", GetType().Name);
+        teardownCtx.AddProperty("TestType", "Integration");
+        LogCtx.Logger.Information("Integration test suite completed", teardownCtx);
+    }
+}
+```
+
+---
+
+## 📊 **AI Prompt Examples**
+
+### **Example 1: Generate Service Method**
+```
+Generate a C# service method using LogCtx that:
+- Takes userId and email parameters
+- Validates email format
+- Saves to database
+- Returns success/failure
+- Uses proper LogCtx initialization and context management
+```
+
+### **Example 2: Generate Test Class**
+```
+Generate NUnit test class using LogCtx that:
+- Tests file upload functionality
+- Includes setup/teardown with proper LogCtx initialization
+- Has 3 test methods with different scenarios
+- Uses Shouldly assertions
+- Includes proper error logging
+```
+
+---
+
+**Version:** 0.3.1  
+**Last Updated:** October 2025  
+**AI Compatibility:** ChatGPT, Claude, Copilot, Gemini

@@ -1,681 +1,418 @@
 # LogCtx API Complete Reference
-*Comprehensive API documentation with examples based on actual implementation*
 
-## 🏗️ **LogCtx Architecture Overview**
+**Comprehensive API reference for LogCtx structured logging library - version 0.3.1**
 
-LogCtx consists of **3 shared projects** with specific interfaces and implementations:
+This document provides complete API reference, terminology definitions, and architectural overview for LogCtx.
 
+---
+
+## 📋 **Terminology Reference Table**
+
+### **Core Classes & Components**
+
+| **Class/Component** | **Purpose** | **Namespace** | **Description** |
+|---------------------|-------------|---------------|-----------------|
+| **FailsafeLogger** | Initializer | `NLogShared` | Robust NLog configuration manager - **ONLY** correct way to initialize LogCtx |
+| **LogCtx** | Factory | `LogCtxShared` | Static factory for creating logging contexts with automatic source capture |
+| **CtxLogger** | Adapter | `LogCtxShared` | Context-aware logger that wraps ILogger for structured logging |
+| **Props** | Properties | `LogCtxShared` | Structured property collection builder for context enrichment |
+| **ILogger** | Interface | `NLog` | Standard NLog logger interface used by CtxLogger |
+
+### **Key Methods & Operations**
+
+| **Method/Property** | **Class** | **Usage** | **Description** |
+|---------------------|-----------|-----------|-----------------|
+| `Initialize(string)` | `FailsafeLogger` | **MANDATORY** | Initialize LogCtx - call once per application |
+| `Set()` | `LogCtx` | Context Creation | Create new logging context with automatic source capture |
+| `Logger` | `LogCtx` | Static Property | Global logger instance (null until initialization) |
+| `AddProperty(key, value)` | Context | Property Builder | Add structured property to current context |
+| `Information(msg, ctx)` | `CtxLogger` | Logging | Log information with context |
+| `Error(msg, ex, ctx)` | `CtxLogger` | Error Logging | Log error with exception and context |
+
+---
+
+## 🚨 **CRITICAL INITIALIZATION PATTERNS**
+
+### **❌ WRONG PATTERNS - Will Crash Your Application:**
+
+```csharp
+// DON'T USE THESE - THEY DON'T EXIST OR ARE WRONG!
+LogCtx.InitLogCtx();                    // ❌ Method doesn't exist
+LogCtx.Initialize();                    // ❌ Method doesn't exist  
+NLog.LogManager.Setup();                // ❌ Bypasses LogCtx initialization
+using LogCtxShared; // Only one namespace // ❌ Missing required namespace
 ```
-LogCtx/
-├── LogCtxShared/           # Core abstractions
-│   ├── ILogCtxLogger.cs   # Logger interface
-│   ├── IScopeContext.cs   # Context scope interface
-│   ├── LogCtx.cs          # Main context manager
-│   ├── Props.cs           # Property builder
-│   └── JsonExtensions.cs  # JSON utilities
-├── NLogShared/            # NLog implementation (PRIMARY)
-│   ├── CtxLogger.cs       # NLog adapter
-│   ├── FailsafeLogger.cs  # Failsafe initialization
-│   └── NLogScopeContext.cs # NLog context adapter
-└── SeriLogShared/         # Serilog implementation (SECONDARY)
-    ├── CtxLogger.cs       # Serilog adapter
-    └── SeriLogScopeContext.cs # Serilog context adapter
+
+### **✅ CORRECT PATTERNS - Copy These Exactly:**
+
+```csharp
+// ✅ REQUIRED USING STATEMENTS - BOTH NEEDED!
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
+
+// ✅ MANDATORY INITIALIZATION - ONLY CORRECT WAY!
+FailsafeLogger.Initialize("NLog.config");
+
+// ✅ CORRECT CONTEXT USAGE
+using var ctx = LogCtx.Set(); // Automatic disposal
+ctx.AddProperty("Key", "Value");
+LogCtx.Logger.Information("Message", ctx);
 ```
 
 ---
 
-## 📚 **Core Classes & Interfaces**
+## 📦 **Package Version Reference**
 
-### **LogCtx Class** *(LogCtxShared/LogCtx.cs)*
+### **Current Supported Versions (October 2025)**
 
-The main context manager that provides source location capture and property management.
+| **Package** | **Version** | **Purpose** | **Required** |
+|-------------|-------------|-------------|--------------|
+| **NLog** | **6.0.4** | Core logging framework | ✅ Mandatory |
+| **NLog.Extensions.Logging** | **6.0.4** | .NET logging integration | ✅ Recommended |
+| **NLog.Targets.Seq** | **6.0.0** | SEQ structured logging target | 🔶 Optional |
+| **NLog.Targets.File** | **6.0.4** | File logging target | ✅ Recommended |
+| **NLog.Schema** | **6.0.4** | Intellisense support | 🔶 Optional |
 
-#### **Constants**
-```csharp
-public const string FILE = "CTXFILE";          // File name property key
-public const string LINE = "CTXLINE";          // Line number property key  
-public const string METHOD = "CTXMETHOD";      // Method name property key
-public const string SRC = "CTXSRC";            // Combined source location key
-public const string STRACE = "CTXSTRACE";      // Stack trace property key
+### **Framework Compatibility**
+
+| **Framework** | **Minimum Version** | **Recommended** | **Status** |
+|---------------|---------------------|-----------------|------------|
+| **.NET** | 8.0 | 8.0+ | ✅ Supported |
+| **.NET Core** | 6.0 | 8.0+ | ✅ Supported |  
+| **.NET Framework** | 4.8 | - | ⚠️ Legacy Support |
+| **C#** | 10.0 | 12.0+ | ✅ Supported |
+
+### **Testing Framework Versions**
+
+| **Framework** | **Version** | **Integration** | **Status** |
+|---------------|-------------|-----------------|------------|
+| **NUnit** | **4.2.2+** | Full LogCtx integration | ✅ Recommended |
+| **xUnit** | **2.6.1+** | Basic LogCtx support | 🔶 Supported |
+| **MSTest** | **3.1.1+** | Basic LogCtx support | 🔶 Supported |
+| **Shouldly** | **4.2.1+** | Assertion library | ✅ Recommended |
+
+---
+
+## 🏗️ **Architecture Overview**
+
+### **Component Relationships**
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  Application    │───▶│  FailsafeLogger │───▶│     NLog        │
+│                 │    │   (Initializer) │    │   (Framework)   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                        │                        │
+         │                        ▼                        ▼
+         │              ┌─────────────────┐    ┌─────────────────┐
+         └─────────────▶│     LogCtx      │───▶│   CtxLogger     │
+                        │   (Factory)     │    │   (Adapter)     │
+                        └─────────────────┘    └─────────────────┘
+                                 │                        │
+                                 ▼                        ▼
+                        ┌─────────────────┐    ┌─────────────────┐
+                        │     Context     │───▶│     Props       │
+                        │   (Instance)    │    │ (Properties)    │
+                        └─────────────────┘    └─────────────────┘
 ```
 
-#### **Properties**
-```csharp
-public static bool CanLog { get; set; } = true;        // Enable/disable logging
-public static ILogCtxLogger? Logger { get; private set; } // Current logger instance
+### **Initialization Flow**
+
 ```
-
-#### **Methods**
-
-##### **Set() - Context Creation with Automatic Source Location**
-```csharp
-public static Props Set(
-    Props? scopeContextProps = null,
-    [CallerMemberName] string memberName = "",
-    [CallerFilePath] string sourceFilePath = "", 
-    [CallerLineNumber] int sourceLineNumber = 0)
-```
-
-**Purpose**: Creates a new logging context with automatic source location capture.
-
-**Parameters**:
-- `scopeContextProps`: Optional initial properties
-- `memberName`: Auto-captured calling method name
-- `sourceFilePath`: Auto-captured source file path
-- `sourceLineNumber`: Auto-captured source line number
-
-**Returns**: `Props` object for method chaining
-
-**Example**:
-```csharp
-// ✅ Basic context creation - captures file:line:method automatically
-using var ctx = LogCtx.Set();
-LogCtx.Logger.Info("Processing started");
-
-// ✅ Context with initial properties
-using var ctx = LogCtx.Set(new Props()
-    .Add("UserId", userId)
-    .Add("Operation", "ProcessFile"));
-LogCtx.Logger.Info("File processing started");
-
-// ✅ Manual source location (advanced usage)
-using var ctx = LogCtx.Set(
-    new Props().Add("Component", "FileProcessor"),
-    "CustomMethod",
-    "/custom/path/File.cs", 
-    123);
-```
-
-##### **Src() - Source Location String**
-```csharp
-public static string Src(
-    string message,
-    [CallerMemberName] string memberName = "",
-    [CallerFilePath] string sourceFilePath = "",
-    [CallerLineNumber] int sourceLineNumber = 0)
-```
-
-**Purpose**: Generates a formatted source location string.
-
-**Returns**: String in format "FileName.MethodName:LineNumber"
-
-**Example**:
-```csharp
-// Generates: "MyService.ProcessFile:42"
-var location = LogCtx.Src("Processing file");
+Application Startup
+        │
+        ▼
+FailsafeLogger.Initialize("NLog.config")
+        │
+        ▼ 
+NLog Configuration Loaded
+        │
+        ▼
+LogCtx.Logger Available (CtxLogger instance)
+        │
+        ▼
+Application Can Create Contexts
+        │
+        ▼
+using var ctx = LogCtx.Set()
+        │
+        ▼
+Context Captures Source Location
+        │
+        ▼
+ctx.AddProperty() - Build Structured Data
+        │
+        ▼
+LogCtx.Logger.Information(message, ctx)
+        │
+        ▼
+Structured Log Entry Created
+        │
+        ▼
+Context Disposed (using statement)
 ```
 
 ---
 
-### **Props Class** *(LogCtxShared/Props.cs)*
+## 🔧 **Standard Code Templates**
 
-Fluent property builder that extends `Dictionary<string, object>` with method chaining.
+### **Template: Application Initialization**
 
-#### **Constructors**
-
-##### **Default Constructor**
 ```csharp
-public Props()
-```
+// ✅ STANDARD APPLICATION TEMPLATE
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
+using NLog;
 
-##### **Parameterized Constructor**
-```csharp
-public Props(params object[] args)
-```
-
-**Purpose**: Creates Props with alternating key-value pairs.
-
-**Example**:
-```csharp
-// Creates: {"UserId": 123, "Action": "Login", "Success": true}
-var props = new Props("UserId", 123, "Action", "Login", "Success", true);
-```
-
-#### **Methods**
-
-##### **Add() - Basic Property Addition**
-```csharp
-public Props Add(string key, object? value)
-```
-
-**Purpose**: Adds or updates a property with fluent interface.
-
-**Example**:
-```csharp
-var props = new Props()
-    .Add("UserId", 123)
-    .Add("Timestamp", DateTime.UtcNow)
-    .Add("Success", true)
-    .Add("Duration", 1234);
-```
-
-##### **AddJson() - JSON Serialization**  
-```csharp
-public Props AddJson(string key, object value)
-```
-
-**Purpose**: Serializes value to JSON before storing.
-
-**Example**:
-```csharp
-var props = new Props()
-    .AddJson("UserData", new { Name = "John", Age = 30 })
-    .AddJson("Config", configObject);
-```
-
-##### **Clear() - Reset Properties**
-```csharp
-public Props Clear()
-```
-
-**Purpose**: Removes all properties, returns self for chaining.
-
-**Example**:
-```csharp
-var props = new Props()
-    .Add("Key1", "Value1")
-    .Clear() // Now empty
-    .Add("Key2", "Value2"); // Only Key2 remains
-```
-
----
-
-### **ILogCtxLogger Interface** *(LogCtxShared/ILogCtxLogger.cs)*
-
-Logger abstraction that supports both NLog and Serilog backends.
-
-#### **Properties**
-```csharp
-LogCtx Ctx { get; set; }  // Current context instance
-```
-
-#### **Configuration Methods**
-```csharp
-bool ConfigureXml(string? configPath);    // Configure from XML file
-bool ConfigureJson(string configPath);   // Configure from JSON file  
-```
-
-#### **Logging Methods**
-```csharp
-void Trace(string message);                    // Trace level
-void Debug(string message);                    // Debug level
-void Info(string message);                     // Information level
-void Warn(string message);                     // Warning level
-void Error(Exception ex, string message);     // Error with exception
-void Fatal(Exception ex, string message);     // Fatal with exception
-```
-
----
-
-## 🎪 **NLog Implementation** *(NLogShared/)*
-
-### **CtxLogger Class** *(NLogShared/CtxLogger.cs)*
-
-Primary logger implementation using NLog backend.
-
-#### **Initialization**
-```csharp
-public CtxLogger()
+namespace {YOUR_NAMESPACE}
 {
-    ConfigureXml(logConfigPath);
-    Logger = LogManager.GetCurrentClassLogger();
-    Ctx = new LogCtx(new NLogScopeContext());
+    internal static class Program
+    {
+        [STAThread]
+        private static void Main()
+        {
+            // ⚠️ MANDATORY - Initialize LogCtx first!
+            FailsafeLogger.Initialize("NLog.config");
+            
+            // Application startup context
+            using var startupCtx = LogCtx.Set();
+            startupCtx.AddProperty("ApplicationName", "{APP_NAME}");
+            startupCtx.AddProperty("Version", "{VERSION}");
+            LogCtx.Logger.Information("Application starting", startupCtx);
+            
+            try
+            {
+                // Your application code here
+                {APPLICATION_CODE}
+            }
+            catch (Exception ex)
+            {
+                using var errorCtx = LogCtx.Set();
+                errorCtx.AddProperty("ApplicationName", "{APP_NAME}");
+                errorCtx.AddProperty("ErrorType", ex.GetType().Name);
+                LogCtx.Logger.Fatal("Application startup failed", ex, errorCtx);
+                throw;
+            }
+        }
+    }
 }
 ```
 
-#### **Configuration Methods**
+### **Template: Service Method**
 
-##### **ConfigureXml() - XML Configuration**
 ```csharp
-public bool ConfigureXml(string? configPath)
-```
+// ✅ STANDARD SERVICE METHOD TEMPLATE
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
 
-**Purpose**: Configures NLog from XML configuration file.
-
-**Example**:
-```csharp
-var logger = new CtxLogger();
-var success = logger.ConfigureXml("NLog.config");
-if (!success) {
-    // Handle configuration failure
-}
-```
-
-##### **ConfigureJson() - JSON Configuration (Not Implemented)**
-```csharp
-public bool ConfigureJson(string configPath)
+public async Task<{RETURN_TYPE}> {METHOD_NAME}Async({PARAMETERS})
 {
-    throw new NotImplementedException("Only XML configuration is supported");
-}
-```
+    // Create method context
+    using var ctx = LogCtx.Set(); // ✅ Automatic source capture
+    ctx.AddProperty("ServiceName", nameof({SERVICE_CLASS}));
+    ctx.AddProperty("Operation", nameof({METHOD_NAME}));
+    // Add parameter properties here
+    LogCtx.Logger.Information("Operation started", ctx);
 
-#### **Logging Implementation**
-```csharp
-public void Debug(string message) => Logger?.Debug(message);
-public void Info(string message) => Logger?.Info(message);  
-public void Warn(string message) => Logger?.Warn(message);
-public void Error(Exception ex, string message) => Logger?.Error(ex, message);
-public void Fatal(Exception ex, string message) => Logger?.Fatal(ex, message);
-```
-
----
-
-### **FailsafeLogger Class** *(NLogShared/FailsafeLogger.cs)*
-
-Robust initialization that never throws exceptions.
-
-#### **Initialize() - Failsafe Initialization**
-```csharp
-public static bool Initialize(
-    string? preferredFileName = "NLog.config",
-    string? altJsonFileName = "NLog.json")
-```
-
-**Purpose**: Attempts multiple configuration methods, falls back to minimal config if all fail.
-
-**Logic Flow**:
-1. Try XML configuration from `AppContext.BaseDirectory`
-2. Try JSON configuration (fallback)
-3. Apply minimal in-memory configuration (console + file)
-4. Apply no-op configuration (last resort)
-
-**Returns**: Always `true` (never throws)
-
-**Example**:
-```csharp
-// ✅ Standard initialization
-var success = FailsafeLogger.Initialize();
-
-// ✅ Custom configuration files
-var success = FailsafeLogger.Initialize("MyApp.config", "MyApp.json");
-
-// ✅ In Program.cs
-static void Main(string[] args)
-{
-    FailsafeLogger.Initialize();  // Never throws, always works
-    
-    // Your application logic...
-}
-```
-
-#### **Fallback Configurations**
-
-##### **Minimal Fallback Configuration**
-When no config files found, creates:
-- Console target for immediate feedback
-- Rolling file target in `Logs/` directory
-- 50MB file size limit with archiving
-
-##### **No-Op Fallback Configuration**  
-When even minimal config fails, creates:
-- Null target that discards all logs
-- Ensures application never crashes from logging issues
-
----
-
-### **NLogScopeContext Class** *(NLogShared/CtxLogger.cs)*
-
-NLog-specific context implementation.
-
-#### **Methods**
-```csharp
-public void Clear()                            // Clear NLog.ScopeContext
-public void PushProperty(string key, object value)  // Add property to NLog context
-```
-
-**Implementation**:
-```csharp
-public class NLogScopeContext : IScopeContext
-{
-    public void Clear() => NLog.ScopeContext.Clear();
-    public void PushProperty(string key, object value) => 
-        NLog.ScopeContext.PushProperty(key, value);
-}
-```
-
----
-
-## 🔍 **Serilog Implementation** *(SeriLogShared/)*
-
-### **CtxLogger Class** *(SeriLogShared/CtxLogger.cs)*
-
-Secondary logger implementation using Serilog backend.
-
-#### **Configuration Methods**
-
-##### **ConfigureJson() - JSON Configuration**
-```csharp
-public bool ConfigureJson(string configPath)
-{
-    configuration = new ConfigurationBuilder()
-        .SetBasePath(Directory.GetCurrentDirectory())
-        .AddJsonFile(configPath)
-        .Build();
-        
-    Log.Logger = new LoggerConfiguration()
-        .ReadFrom.Configuration(configuration)
-        .CreateLogger();
-        
-    return true;
-}
-```
-
-##### **ConfigureXml() - XML Configuration**  
-```csharp
-public bool ConfigureXml(string configPath)
-{
-    configuration = new ConfigurationBuilder()
-        .SetBasePath(Directory.GetCurrentDirectory())
-        .AddXmlFile(configPath)
-        .Build();
-        
-    Log.Logger = new LoggerConfiguration()
-        .ReadFrom.Configuration(configuration)
-        .CreateLogger();
-        
-    return true;
-}
-```
-
-#### **Logging Implementation**
-```csharp
-public void Debug(string message) => Log.Debug(message);
-public void Info(string message) => Log.Information(message);
-public void Warn(string message) => Log.Warning(message);
-public void Trace(string message) => Log.Verbose(message);
-public void Error(Exception ex, string message) => Log.Error(ex, message);
-public void Fatal(Exception ex, string message) => Log.Fatal(ex, message);
-```
-
-#### **Disposal**
-```csharp
-public void Dispose() => Log.CloseAndFlush();
-```
-
----
-
-### **SeriLogScopeContext Class** *(SeriLogShared/CtxLogger.cs)*
-
-Serilog-specific context implementation.
-
-#### **Methods**
-```csharp
-public class SeriLogScopeContext : IScopeContext  
-{
-    public void Clear() => LogContext.Reset();
-    public void PushProperty(string key, object value) => 
-        LogContext.PushProperty(key, value);
-}
-```
-
----
-
-## 🛠️ **JsonExtensions Class** *(LogCtxShared/JsonExtensions.cs)*
-
-JSON utility methods for object serialization.
-
-#### **Methods**
-
-##### **AsJson() - Object Serialization**
-```csharp
-public static string AsJson(this object obj, bool indented = false)
-```
-
-**Purpose**: Converts any object to JSON string.
-
-**Example**:
-```csharp
-var user = new { Id = 123, Name = "John", Active = true };
-var json = user.AsJson();           // Compact JSON
-var prettyJson = user.AsJson(true); // Indented JSON
-```
-
-##### **AsJsonDiagram() - PlantUML Integration**
-```csharp
-public static string AsJsonDiagram(this object obj)
-```
-
-**Purpose**: Wraps JSON in PlantUML diagram format.
-
-**Returns**: `@startjson ClassName\n{...}\n@endjson`
-
-**Example**:
-```csharp
-var config = new AppConfig { Debug = true, Port = 8080 };
-var diagram = config.AsJsonDiagram();
-// Output: @startjson AppConfig\n{"Debug":true,"Port":8080}\n@endjson
-```
-
-##### **AsJsonEmbedded() - PlantUML Embedded**
-```csharp
-public static string AsJsonEmbedded(this object obj)
-```
-
-**Purpose**: Creates embedded JSON for PlantUML diagrams.
-
-**Returns**: `json ClassName as J {...}`
-
-##### **FromJson<T>() - Deserialization**
-```csharp
-public static T FromJson<T>(string value)
-```
-
-**Purpose**: Deserializes JSON string to typed object.
-
-**Example**:
-```csharp
-var json = """{"Id":123,"Name":"John","Active":true}""";
-var user = json.FromJson<User>();
-```
-
----
-
-## 🎯 **Usage Patterns & Examples**
-
-### **Pattern 1: Basic Method Logging**
-```csharp
-public async Task<bool> ProcessFileAsync(string filePath)
-{
-    // ✅ Context captures method name, file, and line automatically
-    using var ctx = LogCtx.Set(new Props()
-        .Add("FilePath", filePath)
-        .Add("Operation", "ProcessFile"));
-        
-    LogCtx.Logger.Info("File processing started");
-    
     try
     {
-        var content = await File.ReadAllTextAsync(filePath);
-        ctx.Add("FileSize", content.Length);
+        // Your business logic here
+        {BUSINESS_LOGIC}
         
-        // Process file content...
-        
-        LogCtx.Logger.Info("File processing completed successfully");
-        return true;
+        // Success logging
+        LogCtx.Logger.Information("Operation completed successfully", ctx);
+        return {RESULT};
     }
     catch (Exception ex)
     {
-        ctx.Add("ErrorType", ex.GetType().Name);
-        LogCtx.Logger.Error(ex, "File processing failed");
-        return false;
-    }
-}
-```
-
-### **Pattern 2: Performance Monitoring**
-```csharp
-public async Task<List<T>> ProcessBatchAsync<T>(List<T> items)
-{
-    var stopwatch = Stopwatch.StartNew();
-    
-    using var ctx = LogCtx.Set(new Props()
-        .Add("BatchSize", items.Count)
-        .Add("ItemType", typeof(T).Name)
-        .Add("StartTime", DateTime.UtcNow));
-        
-    LogCtx.Logger.Info("Batch processing started");
-    
-    var results = new List<T>();
-    var processed = 0;
-    
-    foreach (var item in items)
-    {
-        // Process each item...
-        results.Add(ProcessSingleItem(item));
-        processed++;
-        
-        // Log progress every 100 items
-        if (processed % 100 == 0)
-        {
-            ctx.Add("ProcessedCount", processed);
-            ctx.Add("ElapsedMs", stopwatch.ElapsedMilliseconds);
-            LogCtx.Logger.Debug("Batch progress update");
-        }
-    }
-    
-    stopwatch.Stop();
-    
-    ctx.Add("TotalProcessed", processed);
-    ctx.Add("TotalDuration", stopwatch.ElapsedMilliseconds);
-    ctx.Add("AverageItemDuration", stopwatch.ElapsedMilliseconds / items.Count);
-    
-    LogCtx.Logger.Info("Batch processing completed");
-    
-    return results;
-}
-```
-
-### **Pattern 3: Error Context Enrichment**
-```csharp
-public async Task<ApiResponse> CallExternalApiAsync(string endpoint, object data)
-{
-    using var ctx = LogCtx.Set(new Props()
-        .Add("Endpoint", endpoint)
-        .Add("RequestSize", data.AsJson().Length)
-        .Add("Timestamp", DateTime.UtcNow));
-    
-    LogCtx.Logger.Info("External API call initiated");
-    
-    try
-    {
-        using var httpClient = new HttpClient();
-        var json = data.AsJson();
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-        
-        var response = await httpClient.PostAsync(endpoint, content);
-        
-        ctx.Add("StatusCode", (int)response.StatusCode);
-        ctx.Add("ResponseSize", response.Content.Headers.ContentLength ?? 0);
-        
-        if (response.IsSuccessStatusCode)
-        {
-            LogCtx.Logger.Info("External API call successful");
-            var responseText = await response.Content.ReadAsStringAsync();
-            return responseText.FromJson<ApiResponse>();
-        }
-        else
-        {
-            var errorText = await response.Content.ReadAsStringAsync();
-            ctx.Add("ErrorResponse", errorText);
-            LogCtx.Logger.Warn("External API call failed with non-success status");
-            throw new HttpRequestException($"API call failed: {response.StatusCode}");
-        }
-    }
-    catch (HttpRequestException ex)
-    {
-        ctx.Add("ErrorType", "HttpRequestException");
-        ctx.Add("HttpError", ex.Message);
-        LogCtx.Logger.Error(ex, "HTTP request failed");
-        throw;
-    }
-    catch (TaskCanceledException ex)
-    {
-        ctx.Add("ErrorType", "TaskCanceledException");
-        ctx.Add("TimeoutError", ex.Message);
-        LogCtx.Logger.Error(ex, "API request timed out");
-        throw;
-    }
-    catch (Exception ex)
-    {
-        ctx.Add("ErrorType", ex.GetType().Name);
-        ctx.Add("UnexpectedError", ex.Message);
-        LogCtx.Logger.Error(ex, "Unexpected error during API call");
+        // Error context with enrichment  
+        ctx.AddProperty("ErrorType", ex.GetType().Name);
+        LogCtx.Logger.Error("Operation failed", ex, ctx);
         throw;
     }
 }
 ```
 
-### **Pattern 4: Testing Integration**
+### **Template: Unit Test Setup**
+
 ```csharp
+// ✅ STANDARD UNIT TEST TEMPLATE
+using NUnit.Framework;
+using Shouldly;
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
+
 [TestFixture]
-public class FileProcessorTests
+public class {TEST_CLASS}Tests
 {
     [OneTimeSetUp]
-    public void Setup()
+    public void OneTimeSetup()
     {
-        // ✅ Initialize LogCtx once for test suite
-        FailsafeLogger.Initialize();
+        // ⚠️ MANDATORY - Initialize once per test fixture
+        FailsafeLogger.Initialize("NLog.config");
     }
-    
+
     [Test]
-    public async Task ProcessFile_ValidInput_ShouldSucceed()
+    public void {TEST_METHOD}()
     {
-        // Arrange
-        using var testCtx = LogCtx.Set(new Props()
-            .Add("TestMethod", nameof(ProcessFile_ValidInput_ShouldSucceed))
-            .Add("TestCategory", "FileProcessing")
-            .Add("TestStartTime", DateTime.UtcNow));
+        // Test context
+        using var testCtx = LogCtx.Set();
+        testCtx.AddProperty("TestClass", nameof({TEST_CLASS}Tests));
+        testCtx.AddProperty("TestMethod", nameof({TEST_METHOD}));
+        LogCtx.Logger.Information("Test execution started", testCtx);
+
+        try
+        {
+            // Arrange, Act, Assert
+            {TEST_CODE}
             
-        LogCtx.Logger.Info("Test execution started");
-        
-        var processor = new FileProcessor();
-        var testFilePath = "test-data/sample.txt";
-        
-        // Act
-        var result = await processor.ProcessFileAsync(testFilePath);
-        
-        // Assert
-        result.ShouldBeTrue();
-        
-        testCtx.Add("TestResult", "Success");
-        testCtx.Add("TestEndTime", DateTime.UtcNow);
-        LogCtx.Logger.Info("Test execution completed successfully");
-    }
-    
-    [Test]
-    public async Task ProcessFile_InvalidFile_ShouldThrowException()
-    {
-        // Arrange
-        using var testCtx = LogCtx.Set(new Props()
-            .Add("TestMethod", nameof(ProcessFile_InvalidFile_ShouldThrowException))
-            .Add("TestCategory", "ErrorHandling"));
-            
-        LogCtx.Logger.Info("Exception test started");
-        
-        var processor = new FileProcessor();
-        var invalidPath = "non-existent-file.txt";
-        
-        // Act & Assert
-        var exception = await Should.ThrowAsync<FileNotFoundException>(
-            () => processor.ProcessFileAsync(invalidPath));
-        
-        testCtx.Add("ExpectedException", exception.GetType().Name);
-        LogCtx.Logger.Info("Exception test completed successfully");
+            LogCtx.Logger.Information("Test execution completed", testCtx);
+        }
+        catch (Exception ex)
+        {
+            using var errorCtx = LogCtx.Set();
+            errorCtx.AddProperty("TestClass", nameof({TEST_CLASS}Tests));
+            errorCtx.AddProperty("TestMethod", nameof({TEST_METHOD}));
+            errorCtx.AddProperty("ErrorType", ex.GetType().Name);
+            LogCtx.Logger.Error("Test execution failed", ex, errorCtx);
+            throw;
+        }
     }
 }
 ```
 
 ---
 
-## 🎯 **Key Takeaways**
+## 📋 **Property Naming Standards**
 
-1. **Automatic Source Location**: `LogCtx.Set()` captures file, method, and line automatically
-2. **Fluent Property Building**: `Props` class supports method chaining for readable code
-3. **Failsafe Initialization**: `FailsafeLogger.Initialize()` never throws, always works
-4. **Structured Logging**: Properties are structured for powerful SEQ queries
-5. **Multiple Backends**: Supports both NLog (primary) and Serilog (secondary)
-6. **Exception Context**: Easy error context enrichment with relevant properties
-7. **Performance Tracking**: Built-in support for timing and performance metrics
-8. **Testing Integration**: Simple setup for unit and integration tests
+### **Required Properties (Use These Names)**
 
-**Next Steps**: See [SEQ-Configuration-Guide.md](SEQ-Configuration-Guide.md) for complete SEQ integration! 🚀
+| **Property Name** | **Type** | **Usage** | **Example** |
+|-------------------|----------|-----------|-------------|
+| `ServiceName` | `string` | Service/class identifier | `"UserService"` |
+| `Operation` | `string` | Method/operation name | `"GetUserById"` |
+| `RequestId` | `string` | Request correlation | `Guid.NewGuid().ToString()` |
+| `ErrorType` | `string` | Exception type name | `ex.GetType().Name` |
+| `UserId` | `int/string` | User identifier | `123` or `"user123"` |
+| `Duration` | `long` | Operation time in ms | `stopwatch.ElapsedMilliseconds` |
+
+### **Optional Properties (Contextual)**
+
+| **Property Name** | **Type** | **Usage** | **Example** |
+|-------------------|----------|-----------|-------------|
+| `FilePath` | `string` | File operations | `"/path/to/file.txt"` |
+| `FileSize` | `long` | File metrics | `fileInfo.Length` |
+| `RecordCount` | `int` | Data volume | `results.Count` |
+| `BatchSize` | `int` | Batch processing | `100` |
+| `StatusCode` | `int` | HTTP operations | `200` |
+| `TableName` | `string` | Database operations | `"Users"` |
+
+---
+
+## 🔍 **Namespace Usage Guide**
+
+### **Why Both Namespaces Are Required**
+
+| **Namespace** | **Contains** | **Used For** |
+|---------------|--------------|--------------|
+| **`NLogShared`** | `FailsafeLogger` | ✅ **MANDATORY** - Initialization only |
+| **`LogCtxShared`** | `LogCtx`, `CtxLogger`, `Props` | ✅ **MANDATORY** - All logging operations |
+
+### **Import Statement Rules**
+
+```csharp
+// ✅ ALWAYS INCLUDE BOTH - NO EXCEPTIONS!
+using NLogShared;   // Required for FailsafeLogger.Initialize()
+using LogCtxShared; // Required for LogCtx.Set(), LogCtx.Logger, etc.
+
+// Additional imports as needed
+using NLog;         // If you need direct NLog access  
+using System;       // Standard system imports
+using Microsoft.Extensions.Logging; // If using .NET logging
+```
+
+---
+
+## ⚠️ **Common Mistakes & Solutions**
+
+### **Mistake 1: Wrong Initialization Method**
+```csharp
+// ❌ WRONG
+LogCtx.InitLogCtx(); // Method doesn't exist!
+
+// ✅ CORRECT  
+FailsafeLogger.Initialize("NLog.config");
+```
+
+### **Mistake 2: Missing Using Statements**
+```csharp
+// ❌ WRONG - Missing required namespace
+using LogCtxShared;
+FailsafeLogger.Initialize("NLog.config"); // Compilation error!
+
+// ✅ CORRECT - Both namespaces included
+using NLogShared;   // For FailsafeLogger
+using LogCtxShared; // For LogCtx classes
+FailsafeLogger.Initialize("NLog.config"); // Works!
+```
+
+### **Mistake 3: Context Not Disposed**
+```csharp
+// ❌ WRONG - Memory leak potential
+var ctx = LogCtx.Set();
+LogCtx.Logger.Information("Test", ctx);
+// Context never disposed!
+
+// ✅ CORRECT - Automatic disposal
+using var ctx = LogCtx.Set();
+LogCtx.Logger.Information("Test", ctx);
+// Context automatically disposed
+```
+
+### **Mistake 4: Multiple Initialization**
+```csharp
+// ❌ WRONG - Initializing multiple times
+FailsafeLogger.Initialize("NLog.config");
+// ... later in code ...
+FailsafeLogger.Initialize("NLog.config"); // Unnecessary!
+
+// ✅ CORRECT - Initialize once per application
+// In Main() method or OneTimeSetUp():
+FailsafeLogger.Initialize("NLog.config"); // Only once!
+```
+
+---
+
+## 📊 **Performance Guidelines**
+
+### **Context Creation Costs**
+
+| **Operation** | **Cost** | **Recommendation** |
+|---------------|----------|-------------------|
+| `LogCtx.Set()` | Low | Use freely for operations |
+| Context disposal | Very Low | Always use `using` statements |
+| Property addition | Minimal | Add meaningful properties |
+| Logging call | Low-Medium | Don't log in tight loops |
+
+### **Best Practices**
+
+1. ✅ **Create contexts** for logical operations
+2. ✅ **Reuse contexts** within operation scope  
+3. ✅ **Add meaningful properties** for SEQ queries
+4. ✅ **Use batch logging** for high-frequency operations
+5. ❌ **Don't create contexts** in tight loops without batching
+
+---
+
+## 🔗 **Reference Links**
+
+- **[README-CORRECTED.md]** - Quick start and overview
+- **[Step-0-Integration-Guide-CORRECTED.md]** - Complete integration guide
+- **[Usage-Patterns-Examples-CORRECTED.md]** - Real-world usage examples
+- **[AI-Code-Generation-Guide-CORRECTED.md]** - AI-assisted development patterns
+
+---
+
+**Version:** 0.3.1  
+**Last Updated:** October 2025  
+**API Stability:** Stable - Breaking changes will increment major version

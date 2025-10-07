@@ -1,717 +1,413 @@
 # LogCtx Usage Patterns & Examples
-*Real-world patterns from VecTool production codebase*
 
-## 🎯 **VecTool: Real-World LogCtx Implementation**
+**Real-world usage patterns and advanced examples for LogCtx structured logging - corrected for version 0.3.1**
 
-VecTool is a **7-project modular architecture** with centralized LogCtx logging, providing real-world examples of structured logging in production.
+This document provides comprehensive examples of LogCtx usage patterns, from basic scenarios to advanced enterprise patterns.
 
-### **VecTool Architecture Overview**
+---
+
+## 🚨 **CRITICAL: Always Use Correct Initialization**
+
+### **❌ WRONG - Will Cause Application Crashes:**
+```csharp
+LogCtx.InitLogCtx(); // ❌ THIS METHOD DOESN'T EXIST!
 ```
-VecTool Solution/
-├── Vectool.UI/          # Main WinForms interface
-├── Core/                # Business logic & Git operations  
-├── Handlers/            # Feature handlers (Markdown, Git, Tests)
-├── RecentFiles/         # Recent Files manager with drag-drop
-├── Configuration/       # Settings stores & app.config abstraction
-├── Constants/           # Centralized XML tag constants
-├── Utils/               # Utilities (MIME detection, file helpers)
-└── LogCtx/              # Git submodule - Structured logging
-    ├── LogCtxShared/    # Core interfaces
-    ├── NLogShared/      # NLog implementation (PRIMARY)
-    └── SeriLogShared/   # Serilog implementation (SECONDARY)
+
+### **✅ CORRECT - Only Valid Initialization:**
+```csharp
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
+
+// ⚠️ MANDATORY - This is the ONLY way to initialize LogCtx!
+FailsafeLogger.Initialize("NLog.config");
 ```
 
 ---
 
-## 🚀 **Pattern 1: Application Initialization**
+## 🏗️ **Pattern 1: Application Lifecycle Management**
 
-### **Program.cs - Failsafe Startup Logging**
+### **Complete Application Setup with Graceful Error Handling**
+
 ```csharp
-using NLogShared;
-using LogCtxShared;
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
+using NLog;
 
-static class Program
+namespace VecTool.Application
 {
-    [STAThread]
-    static void Main()
+    internal static class Program
     {
-        // ✅ VecTool Pattern: Failsafe initialization that never throws
-        FailsafeLogger.Initialize("NLog.config");
-        
-        // ✅ Application startup context
-        using var startupCtx = LogCtx.Set(new Props()
-            .Add("Application", "VecTool")
-            .Add("Version", "4.25.1007")
-            .Add("Environment", "Development")
-            .Add("ProcessId", Environment.ProcessId)
-            .Add("StartupTime", DateTime.UtcNow));
-            
-        LogCtx.Logger.Info("VecTool application startup initiated");
-        
-        try
-        {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            
-            startupCtx.Add("UIInitialized", true);
-            LogCtx.Logger.Info("UI subsystem initialized");
-            
-            Application.Run(new MainForm());
-            
-            LogCtx.Logger.Info("VecTool application shutdown gracefully");
-        }
-        catch (Exception ex)
-        {
-            startupCtx.Add("FatalError", ex.GetType().Name);
-            startupCtx.Add("ErrorMessage", ex.Message);
-            LogCtx.Logger.Fatal(ex, "VecTool application failed to start");
-            throw;
-        }
-    }
-}
-```
-
-### **App.config - VecTool Configuration**
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <appSettings>
-    <!-- Recent Files Configuration -->
-    <add key="recentFilesMaxCount" value="200" />
-    <add key="recentFilesRetentionDays" value="30" />
-    <add key="recentFilesOutputPath" value="Generated" />
-    
-    <!-- Vector Store Configuration -->
-    <add key="vectorStoreFoldersPath" value="Config/vectorStoreFolders.json" />
-    <add key="excludedFiles" value="*.tmp,*.cache,*.log" />
-    <add key="excludedFolders" value="bin,obj,node_modules,.git" />
-  </appSettings>
-</configuration>
-```
-
----
-
-## 🔧 **Pattern 2: Configuration Management with Validation**
-
-### **RecentFilesConfig.cs - Validated Configuration Loading**
-```csharp
-using LogCtxShared;
-using NLogShared;
-
-public sealed class RecentFilesConfig
-{
-    private static readonly CtxLogger log = new();
-    
-    public static RecentFilesConfig FromAppConfig(IAppSettingsReader? reader = null)
-    {
-        using var ctx = LogCtx.Set(new Props()
-            .Add("Operation", "LoadRecentFilesConfig")
-            .Add("ConfigSource", reader?.GetType().Name ?? "DefaultAppSettings"));
-            
-        LogCtx.Logger.Info("Loading Recent Files configuration");
-        
-        try
-        {
-            reader ??= new ConfigurationManagerAppSettingsReader();
-            
-            int maxCount = ParseIntOrDefault(reader.Get(CONFIGKEY_MAXCOUNT), DefaultMaxCount);
-            int retention = ParseIntOrDefault(reader.Get(CONFIGKEY_RETENTIONDAYS), DefaultRetentionDays);
-            string output = reader.Get(CONFIGKEY_OUTPUTPATH) ?? DefaultOutputPath;
-            
-            ctx.Add("MaxCount", maxCount);
-            ctx.Add("RetentionDays", retention);
-            ctx.Add("OutputPath", output);
-            ctx.Add("ConfigurationValid", true);
-            
-            var config = new RecentFilesConfig(maxCount, retention, output);
-            
-            LogCtx.Logger.Info("Recent Files configuration loaded successfully");
-            return config;
-        }
-        catch (ArgumentOutOfRangeException ex)
-        {
-            ctx.Add("ValidationError", ex.ParamName);
-            ctx.Add("ErrorType", "ConfigurationValidation");
-            LogCtx.Logger.Error(ex, "Invalid configuration values detected");
-            throw;
-        }
-        catch (Exception ex)
-        {
-            ctx.Add("ErrorType", ex.GetType().Name);
-            LogCtx.Logger.Error(ex, "Failed to load Recent Files configuration");
-            throw;
-        }
-    }
-    
-    private static int ParseIntOrDefault(string? value, int defaultValue)
-    {
-        using var parseCtx = LogCtx.Set(new Props()
-            .Add("Operation", "ParseConfigValue")
-            .Add("RawValue", value)
-            .Add("DefaultValue", defaultValue));
-        
-        if (int.TryParse(value, out int parsed))
-        {
-            parseCtx.Add("ParsedValue", parsed);
-            parseCtx.Add("ParseSuccess", true);
-            LogCtx.Logger.Debug("Configuration value parsed successfully");
-            return parsed;
-        }
-        
-        parseCtx.Add("ParseSuccess", false);
-        parseCtx.Add("UsingDefault", true);
-        LogCtx.Logger.Warn("Failed to parse configuration value, using default");
-        return defaultValue;
-    }
-}
-```
-
----
-
-## 📁 **Pattern 3: File System Operations with Context**
-
-### **VectorStoreConfig.cs - File Operations with Rich Context**
-```csharp
-using LogCtxShared;
-using NLogShared;
-
-public class VectorStoreConfig
-{
-    private static readonly CtxLogger log = new();
-    
-    public static Dictionary<string, VectorStoreConfig> LoadAll(string? configPath = null)
-    {
-        using var ctx = LogCtx.Set(new Props()
-            .Add("Operation", "LoadAllVectorStoreConfigs")
-            .Add("ConfigPath", configPath)
-            .Add("StartTime", DateTime.UtcNow));
-            
-        string vectorStoreFoldersPath = configPath ?? 
-            ConfigurationManager.AppSettings["vectorStoreFoldersPath"] ?? 
-            "Config/vectorStoreFolders.json";
-        
-        ctx.Add("ResolvedPath", vectorStoreFoldersPath);
-        LogCtx.Logger.Info("Loading vector store configurations");
-        
-        var configs = new Dictionary<string, VectorStoreConfig>();
-        
-        if (File.Exists(vectorStoreFoldersPath))
+        [STAThread]
+        private static void Main()
         {
             try
             {
-                var fileInfo = new FileInfo(vectorStoreFoldersPath);
-                ctx.Add("FileSize", fileInfo.Length);
-                ctx.Add("LastModified", fileInfo.LastWriteTime);
+                // ⚠️ MANDATORY - Initialize logging before any other operations
+                FailsafeLogger.Initialize("NLog.config");
                 
-                string json = File.ReadAllText(vectorStoreFoldersPath);
-                ctx.Add("JsonLength", json.Length);
+                // Application startup sequence with detailed context
+                using var startupCtx = LogCtx.Set();
+                startupCtx.AddProperty("ApplicationName", "VecTool");
+                startupCtx.AddProperty("Version", "4.0.p3");
+                startupCtx.AddProperty("Environment", GetEnvironmentName());
+                startupCtx.AddProperty("StartupTime", DateTime.UtcNow);
+                LogCtx.Logger.Information("Application initialization started", startupCtx);
+
+                // Initialize application components
+                InitializeApplication(startupCtx);
                 
-                var deserializedConfigs = JsonSerializer.Deserialize<Dictionary<string, VectorStoreConfig>>(json);
+                // Run main application loop
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Application.Run(new MainForm());
                 
-                if (deserializedConfigs != null)
-                {
-                    configs = deserializedConfigs;
-                    ctx.Add("ConfigCount", configs.Count);
-                    ctx.Add("LoadSuccess", true);
-                    
-                    LogCtx.Logger.Info("Vector store configurations loaded successfully");
-                }
-                else
-                {
-                    ctx.Add("LoadSuccess", false);
-                    ctx.Add("ErrorReason", "DeserializationReturnedNull");
-                    LogCtx.Logger.Warn("Deserialization returned null, using empty configuration");
-                }
-            }
-            catch (JsonException ex)
-            {
-                ctx.Add("ErrorType", "JsonException");
-                ctx.Add("JsonError", ex.Message);
-                LogCtx.Logger.Error(ex, "Invalid JSON format in configuration file");
-                // Return empty configs rather than throwing
-            }
-            catch (IOException ex)
-            {
-                ctx.Add("ErrorType", "IOException");
-                ctx.Add("IOError", ex.Message);
-                LogCtx.Logger.Error(ex, "File access error loading configuration");
             }
             catch (Exception ex)
             {
-                ctx.Add("ErrorType", ex.GetType().Name);
-                LogCtx.Logger.Error(ex, "Unexpected error loading vector store configurations");
+                HandleStartupFailure(ex);
+                throw;
             }
-        }
-        else
-        {
-            ctx.Add("FileExists", false);
-            ctx.Add("UsingDefaults", true);
-            LogCtx.Logger.Info("Configuration file not found, using default empty configuration");
-        }
-        
-        return configs;
-    }
-    
-    public bool IsFileExcluded(string fileName)
-    {
-        using var ctx = LogCtx.Set(new Props()
-            .Add("Operation", "CheckFileExclusion")
-            .Add("FileName", fileName)
-            .Add("PatternCount", ExcludedFiles.Count));
-        
-        foreach (var pattern in ExcludedFiles)
-        {
-            string regexPattern = Regex.Escape(pattern).Replace("\\*", ".*");
-            
-            if (Regex.IsMatch(fileName, regexPattern, RegexOptions.IgnoreCase))
+            finally
             {
-                ctx.Add("ExcludedByPattern", pattern);
-                ctx.Add("IsExcluded", true);
-                LogCtx.Logger.Debug("File excluded by pattern");
-                return true;
+                // Graceful shutdown logging
+                using var shutdownCtx = LogCtx.Set();
+                shutdownCtx.AddProperty("ApplicationName", "VecTool");
+                shutdownCtx.AddProperty("ShutdownTime", DateTime.UtcNow);
+                LogCtx.Logger.Information("Application shutdown completed", shutdownCtx);
             }
         }
-        
-        ctx.Add("IsExcluded", false);
-        LogCtx.Logger.Debug("File not excluded by any pattern");
-        return false;
+
+        private static void InitializeApplication(LogCtx startupCtx)
+        {
+            // Component initialization with inherited context
+            startupCtx.AddProperty("InitializationStep", "Components");
+            LogCtx.Logger.Information("Initializing application components", startupCtx);
+
+            // Initialize individual components...
+            InitializeGitRunner(startupCtx);
+            InitializeRecentFilesManager(startupCtx);
+            InitializeTestRunner(startupCtx);
+        }
+
+        private static void HandleStartupFailure(Exception ex)
+        {
+            try
+            {
+                using var errorCtx = LogCtx.Set();
+                errorCtx.AddProperty("ApplicationName", "VecTool");
+                errorCtx.AddProperty("FailureStage", "Startup");
+                errorCtx.AddProperty("ErrorType", ex.GetType().Name);
+                errorCtx.AddProperty("ErrorMessage", ex.Message);
+                LogCtx.Logger.Fatal("Application startup failed", ex, errorCtx);
+            }
+            catch
+            {
+                // Fallback logging if LogCtx fails
+                Console.WriteLine($"CRITICAL: Startup failure - {ex}");
+            }
+        }
+
+        private static string GetEnvironmentName()
+        {
+            #if DEBUG
+                return "Development";
+            #else
+                return "Production";
+            #endif
+        }
     }
 }
 ```
 
 ---
 
-## 📊 **Pattern 4: Recent Files Management with Performance Tracking**
+## 🔄 **Pattern 2: Service Layer with Transaction Context**
 
-### **RecentFilesManager.cs - Collection Operations with Metrics**
+### **File Processing Service with Comprehensive Logging**
+
 ```csharp
-using LogCtxShared;
-using NLogShared;
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
 
-public sealed class RecentFilesManager : IRecentFilesManager
+public class FileProcessingService
 {
-    private static readonly CtxLogger log = new();
-    private readonly object gate = new();
-    private readonly List<RecentFileInfo> items = new();
-    
-    public void RegisterGeneratedFile(string filePath, RecentFileType fileType, 
-        IReadOnlyList<string> sourceFolders, long fileSizeBytes = 0, DateTime? generatedAtUtc = null)
+    private readonly IFileValidator fileValidator;
+    private readonly IContentProcessor contentProcessor;
+
+    public FileProcessingService(IFileValidator fileValidator, IContentProcessor contentProcessor)
     {
-        using var ctx = LogCtx.Set(new Props()
-            .Add("Operation", "RegisterGeneratedFile")
-            .Add("FilePath", filePath)
-            .Add("FileType", fileType.ToString())
-            .Add("SourceFolderCount", sourceFolders.Count)
-            .Add("FileSizeBytes", fileSizeBytes)
-            .Add("GeneratedAt", generatedAtUtc ?? DateTime.UtcNow));
-        
-        LogCtx.Logger.Info("Registering new generated file");
-        
-        var newItem = new RecentFileInfo(filePath, 
-            generatedAtUtc?.ToLocalTime() ?? DateTime.Now,
-            fileType, sourceFolders.ToList(), fileSizeBytes);
-        
-        lock (gate)
-        {
-            // Remove any existing entry with same path
-            int removedCount = items.RemoveAll(i => 
-                i.FilePath.Equals(filePath, StringComparison.OrdinalIgnoreCase));
-            
-            if (removedCount > 0)
-            {
-                ctx.Add("DuplicatesRemoved", removedCount);
-                LogCtx.Logger.Debug("Removed duplicate entries");
-            }
-            
-            items.Add(newItem);
-            ctx.Add("TotalItems", items.Count);
-            
-            EnforcePoliciesNoLock();
-            
-            ctx.Add("FinalItemCount", items.Count);
-            LogCtx.Logger.Info("Generated file registered successfully");
-        }
-        
-        Save();
+        this.fileValidator = fileValidator ?? throw new ArgumentNullException(nameof(fileValidator));
+        this.contentProcessor = contentProcessor ?? throw new ArgumentNullException(nameof(contentProcessor));
     }
-    
-    public int CleanupExpiredFiles(DateTime? nowUtc = null)
+
+    public async Task<ProcessingResult> ProcessFileAsync(string filePath, ProcessingOptions options)
     {
-        using var ctx = LogCtx.Set(new Props()
-            .Add("Operation", "CleanupExpiredFiles")
-            .Add("RetentionDays", config.RetentionDays)
-            .Add("CurrentTime", nowUtc ?? DateTime.UtcNow));
+        // Create operation context with automatic source location capture
+        using var operationCtx = LogCtx.Set(); // ✅ Captures file/line automatically
+        operationCtx.AddProperty("ServiceName", nameof(FileProcessingService));
+        operationCtx.AddProperty("Operation", nameof(ProcessFileAsync));
+        operationCtx.AddProperty("FilePath", filePath);
+        operationCtx.AddProperty("Options", options.ToString());
+        operationCtx.AddProperty("CorrelationId", Guid.NewGuid().ToString());
         
-        LogCtx.Logger.Info("Starting expired files cleanup");
-        
-        var now = nowUtc?.ToLocalTime() ?? DateTime.Now;
-        var cutoff = now.AddDays(-config.RetentionDays);
-        
-        ctx.Add("CutoffDate", cutoff);
-        
-        int removedCount;
-        lock (gate)
+        var stopwatch = Stopwatch.StartNew();
+        LogCtx.Logger.Information("File processing operation started", operationCtx);
+
+        try
         {
-            int initialCount = items.Count;
-            ctx.Add("InitialItemCount", initialCount);
-            
-            removedCount = items.RemoveAll(f => f.GeneratedAt < cutoff);
-            
-            ctx.Add("ItemsRemoved", removedCount);
-            ctx.Add("FinalItemCount", items.Count);
-            
-            if (removedCount > 0)
+            // Step 1: File validation with metrics
+            using var validationCtx = LogCtx.Set();
+            validationCtx.AddProperty("ServiceName", nameof(FileProcessingService));
+            validationCtx.AddProperty("Operation", "ValidateFile");
+            validationCtx.AddProperty("FilePath", filePath);
+            LogCtx.Logger.Information("File validation started", validationCtx);
+
+            var fileInfo = new FileInfo(filePath);
+            if (!fileInfo.Exists)
             {
-                Save();
-                LogCtx.Logger.Info("Expired files cleanup completed");
+                validationCtx.AddProperty("ValidationResult", "FileNotFound");
+                LogCtx.Logger.Warning("File not found during validation", validationCtx);
+                return ProcessingResult.Failed("File not found");
             }
-            else
-            {
-                LogCtx.Logger.Debug("No expired files found");
-            }
+
+            validationCtx.AddProperty("FileSize", fileInfo.Length);
+            validationCtx.AddProperty("FileExtension", fileInfo.Extension);
+            validationCtx.AddProperty("LastModified", fileInfo.LastWriteTimeUtc);
+            validationCtx.AddProperty("ValidationResult", "Success");
+            LogCtx.Logger.Information("File validation completed", validationCtx);
+
+            // Step 2: Content processing with progress tracking
+            var content = await File.ReadAllTextAsync(filePath);
+            using var processingCtx = LogCtx.Set();
+            processingCtx.AddProperty("ServiceName", nameof(FileProcessingService));
+            processingCtx.AddProperty("Operation", "ProcessContent");
+            processingCtx.AddProperty("FilePath", filePath);
+            processingCtx.AddProperty("ContentLength", content.Length);
+            processingCtx.AddProperty("ProcessingOptions", options.ToString());
+            LogCtx.Logger.Information("Content processing started", processingCtx);
+
+            var result = await contentProcessor.ProcessAsync(content, options);
+            
+            processingCtx.AddProperty("ProcessedLines", result.LinesProcessed);
+            processingCtx.AddProperty("ProcessedItems", result.ItemsProcessed);
+            processingCtx.AddProperty("ProcessingResult", "Success");
+            LogCtx.Logger.Information("Content processing completed", processingCtx);
+
+            // Step 3: Success metrics and final result
+            stopwatch.Stop();
+            operationCtx.AddProperty("TotalDurationMs", stopwatch.ElapsedMilliseconds);
+            operationCtx.AddProperty("ProcessingResult", "Success");
+            operationCtx.AddProperty("LinesProcessed", result.LinesProcessed);
+            operationCtx.AddProperty("ItemsProcessed", result.ItemsProcessed);
+            LogCtx.Logger.Information("File processing operation completed successfully", operationCtx);
+
+            return ProcessingResult.Success(result);
         }
-        
-        return removedCount;
-    }
-    
-    private void EnforcePoliciesNoLock()
-    {
-        using var ctx = LogCtx.Set(new Props()
-            .Add("Operation", "EnforcePolicies")
-            .Add("MaxCount", config.MaxCount)
-            .Add("CurrentCount", items.Count));
-        
-        if (items.Count <= config.MaxCount)
+        catch (Exception ex)
         {
-            ctx.Add("PolicyEnforced", false);
-            LogCtx.Logger.Debug("Item count within limits, no enforcement needed");
-            return;
+            // Comprehensive error context with performance data
+            stopwatch.Stop();
+            using var errorCtx = LogCtx.Set();
+            errorCtx.AddProperty("ServiceName", nameof(FileProcessingService));
+            errorCtx.AddProperty("Operation", nameof(ProcessFileAsync));
+            errorCtx.AddProperty("FilePath", filePath);
+            errorCtx.AddProperty("ErrorType", ex.GetType().Name);
+            errorCtx.AddProperty("ErrorMessage", ex.Message);
+            errorCtx.AddProperty("DurationBeforeFailureMs", stopwatch.ElapsedMilliseconds);
+            errorCtx.AddProperty("ProcessingResult", "Failed");
+            LogCtx.Logger.Error("File processing operation failed", ex, errorCtx);
+            
+            return ProcessingResult.Failed(ex.Message);
         }
-        
-        var trimmedList = items.OrderByDescending(f => f.GeneratedAt)
-            .Take(config.MaxCount)
-            .ToList();
-        
-        int removedCount = items.Count - trimmedList.Count;
-        
-        items.Clear();
-        items.AddRange(trimmedList);
-        
-        ctx.Add("PolicyEnforced", true);
-        ctx.Add("ItemsRemoved", removedCount);
-        ctx.Add("FinalCount", items.Count);
-        
-        LogCtx.Logger.Info("Policy enforcement completed - excess items removed");
     }
 }
 ```
 
 ---
 
-## 🧪 **Pattern 5: Unit Testing with LogCtx**
+## 🧪 **Pattern 3: Comprehensive Test Suite Integration**
 
-### **ConvertSelectedFoldersToMDTests.cs - Test Context Tracking**
+### **Integration Test Base with Setup/Teardown**
+
 ```csharp
 using NUnit.Framework;
 using Shouldly;
-using LogCtxShared;
-using NLogShared;
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
 
 [TestFixture]
-public class ConvertSelectedFoldersToMDTests : DocTestBase
+public abstract class IntegrationTestBase
 {
+    protected string TestDataDirectory { get; private set; } = string.Empty;
+    protected TestContext TestContext { get; private set; } = null!;
+
     [OneTimeSetUp]
-    public void OneTimeSetup()
+    public void GlobalSetup()
     {
-        // ✅ Initialize LogCtx once per test fixture
-        FailsafeLogger.Initialize();
+        // ⚠️ MANDATORY INITIALIZATION - Initialize once per test fixture
+        FailsafeLogger.Initialize("NLog.config");
         
-        using var fixtureCtx = LogCtx.Set(new Props()
-            .Add("TestFixture", nameof(ConvertSelectedFoldersToMDTests))
-            .Add("SetupTime", DateTime.UtcNow));
-            
-        LogCtx.Logger.Info("Test fixture setup initiated");
+        using var setupCtx = LogCtx.Set();
+        setupCtx.AddProperty("TestSuite", GetType().Name);
+        setupCtx.AddProperty("TestType", "Integration");
+        setupCtx.AddProperty("TestFramework", "NUnit");
+        setupCtx.AddProperty("SetupTime", DateTime.UtcNow);
+        LogCtx.Logger.Information("Integration test suite initialization started", setupCtx);
+
+        // Setup test environment
+        TestDataDirectory = CreateTestDataDirectory();
+        TestContext = CreateTestContext();
+        
+        setupCtx.AddProperty("TestDataDirectory", TestDataDirectory);
+        setupCtx.AddProperty("TestContextId", TestContext.Id);
+        LogCtx.Logger.Information("Integration test suite initialization completed", setupCtx);
     }
-    
+
+    [OneTimeTearDown]
+    public void GlobalTearDown()
+    {
+        using var teardownCtx = LogCtx.Set();
+        teardownCtx.AddProperty("TestSuite", GetType().Name);
+        teardownCtx.AddProperty("TestType", "Integration");
+        teardownCtx.AddProperty("TeardownTime", DateTime.UtcNow);
+        LogCtx.Logger.Information("Integration test suite teardown started", teardownCtx);
+
+        // Cleanup test resources
+        CleanupTestData();
+        TestContext?.Dispose();
+        
+        LogCtx.Logger.Information("Integration test suite teardown completed", teardownCtx);
+    }
+
     [SetUp]
-    public void Setup()
+    public void TestSetup()
     {
-        using var setupCtx = LogCtx.Set(new Props()
-            .Add("Operation", "TestSetup")
-            .Add("TestRootPath", testRootPath));
-            
-        testRootPath = Path.Combine(Path.GetTempPath(), "ConvertSelectedFoldersToDocxTests");
-        Directory.CreateDirectory(testRootPath);
-        
-        outputDocxPath = Path.Combine(testRootPath, "output.docx");
-        
-        setupCtx.Add("DirectoryCreated", true);
-        setupCtx.Add("OutputPath", outputDocxPath);
-        
-        LogCtx.Logger.Debug("Test setup completed");
+        using var testSetupCtx = LogCtx.Set();
+        testSetupCtx.AddProperty("TestSuite", GetType().Name);
+        testSetupCtx.AddProperty("TestMethod", TestContext.CurrentContext.Test.Name);
+        testSetupCtx.AddProperty("TestCategory", GetTestCategory());
+        LogCtx.Logger.Information("Individual test setup started", testSetupCtx);
     }
-    
-    [Test]
-    public void ExportSelectedFoldersToMarkdown_MultipleFolders_ShouldIncludeAllInMarkdown()
-    {
-        // Arrange
-        using var testCtx = LogCtx.Set(new Props()
-            .Add("TestMethod", nameof(ExportSelectedFoldersToMarkdown_MultipleFolders_ShouldIncludeAllInMarkdown))
-            .Add("TestCategory", "MarkdownExport")
-            .Add("TestStartTime", DateTime.UtcNow));
-        
-        LogCtx.Logger.Info("Test execution started");
-        
-        string folder1 = Path.Combine(testRootPath, "MarkdownFolder1Name");
-        string folder2 = Path.Combine(testRootPath, "MarkdownFolder2Name");
-        Directory.CreateDirectory(folder1);
-        Directory.CreateDirectory(folder2);
-        
-        string textFilePath1 = Path.Combine(folder1, "Markdown1FileName");
-        string textFilePath2 = Path.Combine(folder2, "Markdown2FileName");
-        
-        File.WriteAllText(textFilePath1, "ContentOfMarkdownFile1");
-        File.WriteAllText(textFilePath2, "ContentOfMarkdownFile2");
-        
-        testCtx.Add("TestDataCreated", true);
-        testCtx.Add("InputFolders", 2);
-        testCtx.Add("InputFiles", 2);
-        
-        string outputMarkdownPath = Path.Combine(testRootPath, "output.md");
-        List<string> folderPaths = new List<string> { folder1, folder2 };
-        
-        // Act
-        var stopwatch = Stopwatch.StartNew();
-        
-        var mdHandler = new MDHandler(null, null);
-        mdHandler.ExportSelectedFolders(folderPaths, outputMarkdownPath, new VectorStoreConfig());
-        
-        stopwatch.Stop();
-        
-        testCtx.Add("ExecutionTimeMs", stopwatch.ElapsedMilliseconds);
-        testCtx.Add("OutputGenerated", File.Exists(outputMarkdownPath));
-        
-        // Assert
-        File.Exists(outputMarkdownPath).ShouldBeTrue();
-        
-        string markdownContent = File.ReadAllText(outputMarkdownPath);
-        testCtx.Add("OutputSizeBytes", markdownContent.Length);
-        
-        markdownContent.ShouldContain("Folder MarkdownFolder1Name");
-        markdownContent.ShouldContain("File Markdown1FileName");
-        markdownContent.ShouldContain("ContentOfMarkdownFile1");
-        markdownContent.ShouldContain("Folder MarkdownFolder2Name");
-        markdownContent.ShouldContain("File Markdown2FileName");
-        markdownContent.ShouldContain("ContentOfMarkdownFile2");
-        
-        testCtx.Add("AssertionsPassed", 6);
-        testCtx.Add("TestResult", "Success");
-        testCtx.Add("TestEndTime", DateTime.UtcNow);
-        
-        LogCtx.Logger.Info("Test execution completed successfully");
-    }
-    
+
     [TearDown]
-    public void Cleanup()
+    public void TestTearDown()
     {
-        using var cleanupCtx = LogCtx.Set(new Props()
-            .Add("Operation", "TestCleanup")
-            .Add("TestRootPath", testRootPath));
+        using var testTeardownCtx = LogCtx.Set();
+        testTeardownCtx.AddProperty("TestSuite", GetType().Name);
+        testTeardownCtx.AddProperty("TestMethod", TestContext.CurrentContext.Test.Name);
+        testTeardownCtx.AddProperty("TestResult", TestContext.CurrentContext.Result.Outcome.Status.ToString());
+        testTeardownCtx.AddProperty("TestDuration", TestContext.CurrentContext.Result.Duration);
         
-        try
+        if (TestContext.CurrentContext.Result.Outcome.Status == TestStatus.Failed)
         {
-            if (Directory.Exists(testRootPath))
-            {
-                Directory.Delete(testRootPath, true);
-                cleanupCtx.Add("CleanupSuccess", true);
-                LogCtx.Logger.Debug("Test cleanup completed");
-            }
-        }
-        catch (Exception ex)
-        {
-            cleanupCtx.Add("CleanupSuccess", false);
-            cleanupCtx.Add("CleanupError", ex.GetType().Name);
-            LogCtx.Logger.Warn(ex, "Test cleanup encountered issues");
-        }
-    }
-}
-```
-
----
-
-## 🔍 **Pattern 6: File Processing with Validation**
-
-### **OpenXmlContentValidator.cs - Validation with Context**
-```csharp
-using LogCtxShared;
-using NLogShared;
-
-public class OpenXmlContentValidator : IDocumentContentValidator
-{
-    private static readonly CtxLogger log = new();
-    private static readonly char[] NonPrintableCharacters = 
-        Enumerable.Range(0, 9)    // ASCII 0-8
-        .Concat(Enumerable.Range(11, 2))  // ASCII 11-12
-        .Concat(Enumerable.Range(14, 18)) // ASCII 14-31
-        .Select(i => (char)i)
-        .ToArray();
-    
-    public bool IsValid(string content)
-    {
-        using var ctx = LogCtx.Set(new Props()
-            .Add("Operation", "ValidateOpenXmlContent")
-            .Add("ContentLength", content?.Length ?? 0)
-            .Add("ValidationTime", DateTime.UtcNow));
-        
-        LogCtx.Logger.Debug("Starting OpenXML content validation");
-        
-        if (content == null)
-        {
-            ctx.Add("ValidationResult", "Valid");
-            ctx.Add("ValidationReason", "NullContentTreatedAsValid");
-            LogCtx.Logger.Debug("Null content treated as valid");
-            return true;
-        }
-        
-        var invalidChars = FindInvalidCharacters(content).ToList();
-        bool isValid = !invalidChars.Any();
-        
-        ctx.Add("ValidationResult", isValid ? "Valid" : "Invalid");
-        ctx.Add("InvalidCharCount", invalidChars.Count);
-        
-        if (!isValid)
-        {
-            ctx.Add("InvalidCharacters", string.Join(",", invalidChars.Select(c => $"0x{(int)c:X2}")));
-            LogCtx.Logger.Warn("Content contains invalid characters for OpenXML");
+            testTeardownCtx.AddProperty("FailureMessage", TestContext.CurrentContext.Result.Message);
+            LogCtx.Logger.Warning("Test completed with failure", testTeardownCtx);
         }
         else
         {
-            LogCtx.Logger.Debug("Content validation passed");
+            LogCtx.Logger.Information("Test completed successfully", testTeardownCtx);
         }
-        
-        return isValid;
     }
-    
-    public IEnumerable<char> FindInvalidCharacters(string content)
-    {
-        using var ctx = LogCtx.Set(new Props()
-            .Add("Operation", "FindInvalidCharacters")
-            .Add("ContentLength", content?.Length ?? 0));
-        
-        if (content == null)
-        {
-            ctx.Add("InvalidCharsFound", 0);
-            return Enumerable.Empty<char>();
-        }
-        
-        var invalidChars = NonPrintableCharacters
-            .Where(content.Contains)
-            .ToList();
-        
-        ctx.Add("InvalidCharsFound", invalidChars.Count);
-        
-        if (invalidChars.Any())
-        {
-            LogCtx.Logger.Debug("Invalid characters detected in content");
-        }
-        
-        return invalidChars;
-    }
+
+    protected virtual string GetTestCategory() => "General";
+    protected abstract string CreateTestDataDirectory();
+    protected abstract TestContext CreateTestContext();
+    protected abstract void CleanupTestData();
 }
-```
 
----
-
-## ⚡ **Pattern 7: Performance Monitoring with Batch Operations**
-
-### **FileSizeFormatter.cs - Utility with Performance Context**
-```csharp
-using LogCtxShared;
-using NLogShared;
-
-public static class FileSizeFormatter
+[TestFixture]
+public class FileProcessingIntegrationTests : IntegrationTestBase
 {
-    private static readonly CtxLogger log = new();
-    
-    public static string Format(long bytes)
+    private FileProcessingService fileProcessingService = null!;
+
+    [SetUp]
+    public void Setup()
     {
-        using var ctx = LogCtx.Set(new Props()
-            .Add("Operation", "FormatFileSize")
-            .Add("InputBytes", bytes)
-            .Add("FormatStartTime", DateTime.UtcNow));
-        
-        if (bytes < 0)
-        {
-            ctx.Add("ValidationError", "NegativeBytes");
-            LogCtx.Logger.Error("Byte size cannot be negative");
-            throw new ArgumentOutOfRangeException(nameof(bytes), "Byte size cannot be negative.");
-        }
-        
-        string[] units = { "B", "KB", "MB", "GB", "TB", "PB" };
-        double size = bytes;
-        int unitIndex = 0;
-        
-        while (size >= 1024 && unitIndex < units.Length - 1)
-        {
-            size /= 1024;
-            unitIndex++;
-        }
-        
-        string formattedSize = $"{size:0.##} {units[unitIndex]}";
-        
-        ctx.Add("FormattedSize", formattedSize);
-        ctx.Add("UnitUsed", units[unitIndex]);
-        ctx.Add("UnitIndex", unitIndex);
-        ctx.Add("FormattingSuccess", true);
-        
-        LogCtx.Logger.Debug("File size formatting completed");
-        
-        return formattedSize;
+        fileProcessingService = new FileProcessingService(
+            new FileValidator(), 
+            new ContentProcessor()
+        );
     }
-    
-    public static string GetFileSizeFormatted(string filePath)
+
+    [Test]
+    [Category("FileProcessing")]
+    public async Task ProcessFileAsync_ValidMarkdownFile_ShouldSucceed()
     {
-        using var ctx = LogCtx.Set(new Props()
-            .Add("Operation", "GetFormattedFileSize")
-            .Add("FilePath", filePath)
-            .Add("AccessTime", DateTime.UtcNow));
+        // Arrange
+        using var testCtx = LogCtx.Set();
+        testCtx.AddProperty("TestClass", nameof(FileProcessingIntegrationTests));
+        testCtx.AddProperty("TestMethod", nameof(ProcessFileAsync_ValidMarkdownFile_ShouldSucceed));
+        testCtx.AddProperty("TestCategory", "FileProcessing");
+        testCtx.AddProperty("FileType", "Markdown");
+        LogCtx.Logger.Information("Test execution started", testCtx);
+
+        var testFile = Path.Combine(TestDataDirectory, "sample.md");
+        await File.WriteAllTextAsync(testFile, "# Test Document\n\nThis is a test markdown file.");
         
-        LogCtx.Logger.Debug("Retrieving formatted file size");
-        
+        testCtx.AddProperty("TestFilePath", testFile);
+        testCtx.AddProperty("TestFileSize", new FileInfo(testFile).Length);
+        LogCtx.Logger.Information("Test file created", testCtx);
+
         try
         {
-            if (!File.Exists(filePath))
+            // Act
+            var options = new ProcessingOptions { Format = ProcessingFormat.Markdown };
+            var result = await fileProcessingService.ProcessFileAsync(testFile, options);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.IsSuccess.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+            result.Data!.LinesProcessed.Should().BeGreaterThan(0);
+
+            testCtx.AddProperty("ProcessingResult", "Success");
+            testCtx.AddProperty("LinesProcessed", result.Data.LinesProcessed);
+            testCtx.AddProperty("ItemsProcessed", result.Data.ItemsProcessed);
+            LogCtx.Logger.Information("Test assertions passed", testCtx);
+        }
+        catch (Exception ex)
+        {
+            using var errorCtx = LogCtx.Set();
+            errorCtx.AddProperty("TestClass", nameof(FileProcessingIntegrationTests));
+            errorCtx.AddProperty("TestMethod", nameof(ProcessFileAsync_ValidMarkdownFile_ShouldSucceed));
+            errorCtx.AddProperty("ErrorType", ex.GetType().Name);
+            errorCtx.AddProperty("TestResult", "Failed");
+            LogCtx.Logger.Error("Test execution failed", ex, errorCtx);
+            throw;
+        }
+
+        LogCtx.Logger.Information("Test execution completed successfully", testCtx);
+    }
+
+    protected override string GetTestCategory() => "FileProcessing";
+
+    protected override string CreateTestDataDirectory()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "LogCtxTests", Guid.NewGuid().ToString());
+        Directory.CreateDirectory(dir);
+        return dir;
+    }
+
+    protected override TestContext CreateTestContext()
+    {
+        return new TestContext(Guid.NewGuid().ToString());
+    }
+
+    protected override void CleanupTestData()
+    {
+        if (Directory.Exists(TestDataDirectory))
+        {
+            try
             {
-                ctx.Add("FileExists", false);
-                LogCtx.Logger.Error("File not found for size calculation");
-                throw new FileNotFoundException($"File not found: {filePath}");
+                Directory.Delete(TestDataDirectory, true);
             }
-            
-            var fileInfo = new FileInfo(filePath);
-            ctx.Add("FileExists", true);
-            ctx.Add("FileSizeBytes", fileInfo.Length);
-            ctx.Add("LastModified", fileInfo.LastWriteTime);
-            
-            string formatted = Format(fileInfo.Length);
-            
-            ctx.Add("FormattedResult", formatted);
-            LogCtx.Logger.Debug("File size retrieved and formatted successfully");
-            
-            return formatted;
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            ctx.Add("ErrorType", "UnauthorizedAccess");
-            ctx.Add("AccessDenied", true);
-            LogCtx.Logger.Error(ex, "Access denied retrieving file size");
-            throw;
-        }
-        catch (IOException ex)
-        {
-            ctx.Add("ErrorType", "IOException");
-            ctx.Add("IOError", ex.Message);
-            LogCtx.Logger.Error(ex, "IO error retrieving file size");
-            throw;
+            catch (Exception ex)
+            {
+                using var cleanupCtx = LogCtx.Set();
+                cleanupCtx.AddProperty("TestDataDirectory", TestDataDirectory);
+                cleanupCtx.AddProperty("ErrorType", ex.GetType().Name);
+                LogCtx.Logger.Warning("Failed to cleanup test data directory", ex, cleanupCtx);
+            }
         }
     }
 }
@@ -719,152 +415,317 @@ public static class FileSizeFormatter
 
 ---
 
-## 📋 **Pattern 8: UI State Management with Persistence**
+## 🔁 **Pattern 4: Batch Processing with Progress Tracking**
 
-### **UiStateConfig.cs - JSON Persistence with Error Handling**
 ```csharp
-using LogCtxShared;
-using NLogShared;
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
 
-public sealed class UiStateConfig
+public class BatchProcessor<T>
 {
-    private static readonly CtxLogger log = new();
-    
-    public static UiState Load(string? directory = null)
+    private readonly int batchSize;
+    private readonly IItemProcessor<T> itemProcessor;
+
+    public BatchProcessor(IItemProcessor<T> itemProcessor, int batchSize = 100)
     {
-        using var ctx = LogCtx.Set(new Props()
-            .Add("Operation", "LoadUiState")
-            .Add("Directory", directory)
-            .Add("LoadTime", DateTime.UtcNow));
+        this.itemProcessor = itemProcessor ?? throw new ArgumentNullException(nameof(itemProcessor));
+        this.batchSize = batchSize > 0 ? batchSize : throw new ArgumentException("Batch size must be positive", nameof(batchSize));
+    }
+
+    public async Task<BatchResult> ProcessAsync(IEnumerable<T> items, CancellationToken cancellationToken = default)
+    {
+        var itemsList = items.ToList();
         
-        LogCtx.Logger.Info("Loading UI state configuration");
+        // Create batch operation context
+        using var batchCtx = LogCtx.Set(); // ✅ Captures file/line automatically
+        batchCtx.AddProperty("ServiceName", nameof(BatchProcessor<T>));
+        batchCtx.AddProperty("Operation", nameof(ProcessAsync));
+        batchCtx.AddProperty("ItemType", typeof(T).Name);
+        batchCtx.AddProperty("TotalItems", itemsList.Count);
+        batchCtx.AddProperty("BatchSize", batchSize);
+        batchCtx.AddProperty("OperationId", Guid.NewGuid().ToString());
         
+        var totalBatches = (int)Math.Ceiling((double)itemsList.Count / batchSize);
+        batchCtx.AddProperty("TotalBatches", totalBatches);
+        
+        var stopwatch = Stopwatch.StartNew();
+        LogCtx.Logger.Information("Batch processing operation started", batchCtx);
+
+        var processedCount = 0;
+        var failedCount = 0;
+        var batchNumber = 1;
+
         try
         {
-            var path = ResolveUiStatePath(directory);
-            ctx.Add("ResolvedPath", path);
-            
-            if (File.Exists(path))
+            foreach (var batch in itemsList.Chunk(batchSize))
             {
-                var fileInfo = new FileInfo(path);
-                ctx.Add("FileExists", true);
-                ctx.Add("FileSizeBytes", fileInfo.Length);
-                ctx.Add("LastModified", fileInfo.LastWriteTime);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Create batch-specific context
+                using var currentBatchCtx = LogCtx.Set();
+                currentBatchCtx.AddProperty("ServiceName", nameof(BatchProcessor<T>));
+                currentBatchCtx.AddProperty("Operation", "ProcessBatch");
+                currentBatchCtx.AddProperty("ItemType", typeof(T).Name);
+                currentBatchCtx.AddProperty("BatchNumber", batchNumber);
+                currentBatchCtx.AddProperty("BatchSize", batch.Length);
+                currentBatchCtx.AddProperty("TotalBatches", totalBatches);
+                currentBatchCtx.AddProperty("ProcessedSoFar", processedCount);
                 
-                var json = File.ReadAllText(path);
-                ctx.Add("JsonLength", json.Length);
-                
-                var state = JsonSerializer.Deserialize<UiState>(json);
-                
-                if (state != null)
+                var batchStopwatch = Stopwatch.StartNew();
+                LogCtx.Logger.Information("Processing batch started", currentBatchCtx);
+
+                try
                 {
-                    ctx.Add("LoadSuccess", true);
-                    ctx.Add("ColumnCount", state.RecentFilesColumnWidths.Count);
-                    ctx.Add("HasRowHeightScale", state.RecentFilesRowHeightScale.HasValue);
+                    // Process items in parallel within the batch
+                    var tasks = batch.Select(async item =>
+                    {
+                        try
+                        {
+                            await itemProcessor.ProcessAsync(item, cancellationToken);
+                            return new { Success = true, Item = item, Error = (Exception?)null };
+                        }
+                        catch (Exception ex)
+                        {
+                            return new { Success = false, Item = item, Error = ex };
+                        }
+                    });
+
+                    var results = await Task.WhenAll(tasks);
                     
-                    LogCtx.Logger.Info("UI state loaded successfully from file");
-                    return state;
+                    var batchSuccessCount = results.Count(r => r.Success);
+                    var batchFailCount = results.Count(r => !r.Success);
+                    
+                    processedCount += batchSuccessCount;
+                    failedCount += batchFailCount;
+                    
+                    batchStopwatch.Stop();
+                    currentBatchCtx.AddProperty("BatchSuccessCount", batchSuccessCount);
+                    currentBatchCtx.AddProperty("BatchFailCount", batchFailCount);
+                    currentBatchCtx.AddProperty("BatchDurationMs", batchStopwatch.ElapsedMilliseconds);
+                    currentBatchCtx.AddProperty("ProcessingResult", batchFailCount == 0 ? "Success" : "PartialSuccess");
+
+                    // Log failed items details
+                    foreach (var failed in results.Where(r => !r.Success))
+                    {
+                        using var failedItemCtx = LogCtx.Set();
+                        failedItemCtx.AddProperty("ServiceName", nameof(BatchProcessor<T>));
+                        failedItemCtx.AddProperty("Operation", "ProcessItem");
+                        failedItemCtx.AddProperty("ItemType", typeof(T).Name);
+                        failedItemCtx.AddProperty("BatchNumber", batchNumber);
+                        failedItemCtx.AddProperty("ItemId", GetItemId(failed.Item));
+                        failedItemCtx.AddProperty("ErrorType", failed.Error?.GetType().Name);
+                        LogCtx.Logger.Warning("Item processing failed within batch", failed.Error, failedItemCtx);
+                    }
+
+                    LogCtx.Logger.Information("Processing batch completed", currentBatchCtx);
                 }
-                else
+                catch (Exception ex)
                 {
-                    ctx.Add("LoadSuccess", false);
-                    ctx.Add("DeserializationResult", "Null");
-                    LogCtx.Logger.Warn("Deserialization returned null, using defaults");
+                    batchStopwatch.Stop();
+                    failedCount += batch.Length;
+                    
+                    currentBatchCtx.AddProperty("BatchDurationMs", batchStopwatch.ElapsedMilliseconds);
+                    currentBatchCtx.AddProperty("ProcessingResult", "Failed");
+                    currentBatchCtx.AddProperty("ErrorType", ex.GetType().Name);
+                    LogCtx.Logger.Error("Entire batch processing failed", ex, currentBatchCtx);
                 }
+
+                batchNumber++;
+                
+                // Progress update
+                var progressPercent = (double)batchNumber / totalBatches * 100;
+                batchCtx.AddProperty("ProgressPercent", Math.Round(progressPercent, 1));
+                batchCtx.AddProperty("ProcessedItems", processedCount);
+                batchCtx.AddProperty("FailedItems", failedCount);
+                LogCtx.Logger.Information("Batch processing progress update", batchCtx);
             }
-            else
-            {
-                ctx.Add("FileExists", false);
-                ctx.Add("UsingDefaults", true);
-                LogCtx.Logger.Info("UI state file not found, using defaults");
-            }
+
+            // Final results
+            stopwatch.Stop();
+            batchCtx.AddProperty("TotalProcessedItems", processedCount);
+            batchCtx.AddProperty("TotalFailedItems", failedCount);
+            batchCtx.AddProperty("TotalDurationMs", stopwatch.ElapsedMilliseconds);
+            batchCtx.AddProperty("ProcessingResult", failedCount == 0 ? "Success" : "PartialSuccess");
+            batchCtx.AddProperty("SuccessRate", Math.Round((double)processedCount / itemsList.Count * 100, 2));
             
-            return new UiState();
+            LogCtx.Logger.Information("Batch processing operation completed", batchCtx);
+
+            return new BatchResult
+            {
+                TotalItems = itemsList.Count,
+                ProcessedItems = processedCount,
+                FailedItems = failedCount,
+                Duration = stopwatch.Elapsed,
+                Success = failedCount == 0
+            };
         }
-        catch (JsonException ex)
+        catch (OperationCanceledException)
         {
-            ctx.Add("ErrorType", "JsonException");
-            ctx.Add("JsonError", ex.Message);
-            LogCtx.Logger.Warn(ex, "Invalid JSON in UI state file, using defaults");
-            return new UiState();
-        }
-        catch (IOException ex)
-        {
-            ctx.Add("ErrorType", "IOException");
-            ctx.Add("IOError", ex.Message);
-            LogCtx.Logger.Warn(ex, "IO error loading UI state, using defaults");
-            return new UiState();
+            stopwatch.Stop();
+            batchCtx.AddProperty("ProcessedItems", processedCount);
+            batchCtx.AddProperty("FailedItems", failedCount);
+            batchCtx.AddProperty("DurationMs", stopwatch.ElapsedMilliseconds);
+            batchCtx.AddProperty("ProcessingResult", "Cancelled");
+            LogCtx.Logger.Warning("Batch processing operation was cancelled", batchCtx);
+            throw;
         }
         catch (Exception ex)
         {
-            // Defensive: never crash UI on corrupt/missing file
-            ctx.Add("ErrorType", ex.GetType().Name);
-            ctx.Add("UnexpectedError", ex.Message);
-            LogCtx.Logger.Warn(ex, "Unexpected error loading UI state, using defaults");
-            return new UiState();
+            stopwatch.Stop();
+            batchCtx.AddProperty("ProcessedItems", processedCount);
+            batchCtx.AddProperty("FailedItems", failedCount);
+            batchCtx.AddProperty("DurationMs", stopwatch.ElapsedMilliseconds);
+            batchCtx.AddProperty("ProcessingResult", "Failed");
+            batchCtx.AddProperty("ErrorType", ex.GetType().Name);
+            LogCtx.Logger.Error("Batch processing operation failed", ex, batchCtx);
+            throw;
         }
     }
-    
-    public static void Save(UiState state, string? directory = null)
+
+    private static string GetItemId(T item)
     {
-        using var ctx = LogCtx.Set(new Props()
-            .Add("Operation", "SaveUiState")
-            .Add("Directory", directory)
-            .Add("SaveTime", DateTime.UtcNow));
+        // Try to get ID from common properties
+        var type = typeof(T);
+        var idProperty = type.GetProperty("Id") ?? type.GetProperty("ID") ?? type.GetProperty("Key");
+        return idProperty?.GetValue(item)?.ToString() ?? item?.ToString() ?? "Unknown";
+    }
+}
+```
+
+---
+
+## 📊 **Pattern 5: Performance Monitoring with Detailed Metrics**
+
+```csharp
+using NLogShared;   // Required for FailsafeLogger
+using LogCtxShared; // Required for LogCtx classes
+
+public class PerformanceTracker : IDisposable
+{
+    private readonly Stopwatch stopwatch;
+    private readonly LogCtx performanceCtx;
+    private readonly Dictionary<string, long> checkpoints;
+    private readonly Dictionary<string, int> counters;
+
+    public PerformanceTracker(string operationName, params (string Key, object Value)[] initialProperties)
+    {
+        stopwatch = Stopwatch.StartNew();
+        checkpoints = new Dictionary<string, long>();
+        counters = new Dictionary<string, int>();
         
-        if (state is null)
+        // Create performance tracking context
+        performanceCtx = LogCtx.Set(); // ✅ Captures file/line automatically
+        performanceCtx.AddProperty("PerformanceOperation", operationName);
+        performanceCtx.AddProperty("TrackingId", Guid.NewGuid().ToString());
+        performanceCtx.AddProperty("StartTime", DateTime.UtcNow);
+        
+        // Add initial properties
+        foreach (var (key, value) in initialProperties)
         {
-            ctx.Add("ErrorType", "ArgumentNull");
-            LogCtx.Logger.Error("Cannot save null UI state");
-            throw new ArgumentNullException(nameof(state));
+            performanceCtx.AddProperty(key, value);
         }
         
-        LogCtx.Logger.Info("Saving UI state configuration");
+        LogCtx.Logger.Information("Performance tracking started", performanceCtx);
+    }
+
+    public void AddCheckpoint(string name, params (string Key, object Value)[] additionalProperties)
+    {
+        var elapsed = stopwatch.ElapsedMilliseconds;
+        checkpoints[name] = elapsed;
         
+        using var checkpointCtx = LogCtx.Set();
+        checkpointCtx.AddProperty("PerformanceCheckpoint", name);
+        checkpointCtx.AddProperty("ElapsedMs", elapsed);
+        checkpointCtx.AddProperty("TotalCheckpoints", checkpoints.Count);
+        
+        foreach (var (key, value) in additionalProperties)
+        {
+            checkpointCtx.AddProperty(key, value);
+        }
+        
+        LogCtx.Logger.Information("Performance checkpoint reached", checkpointCtx);
+    }
+
+    public void IncrementCounter(string counterName, int increment = 1)
+    {
+        if (!counters.ContainsKey(counterName))
+        {
+            counters[counterName] = 0;
+        }
+        
+        counters[counterName] += increment;
+        performanceCtx.AddProperty($"Counter_{counterName}", counters[counterName]);
+    }
+
+    public void AddMetric(string metricName, object value)
+    {
+        performanceCtx.AddProperty($"Metric_{metricName}", value);
+    }
+
+    public void Dispose()
+    {
+        stopwatch.Stop();
+        
+        // Add final performance metrics
+        performanceCtx.AddProperty("TotalDurationMs", stopwatch.ElapsedMilliseconds);
+        performanceCtx.AddProperty("EndTime", DateTime.UtcNow);
+        performanceCtx.AddProperty("CheckpointCount", checkpoints.Count);
+        
+        // Add all checkpoints as properties
+        foreach (var checkpoint in checkpoints)
+        {
+            performanceCtx.AddProperty($"Checkpoint_{checkpoint.Key}_Ms", checkpoint.Value);
+        }
+        
+        // Add all final counter values
+        foreach (var counter in counters)
+        {
+            performanceCtx.AddProperty($"FinalCounter_{counter.Key}", counter.Value);
+        }
+        
+        LogCtx.Logger.Information("Performance tracking completed", performanceCtx);
+        performanceCtx.Dispose();
+    }
+}
+
+// Usage example
+public class DataExportService
+{
+    public async Task<ExportResult> ExportDataAsync(ExportRequest request)
+    {
+        using var tracker = new PerformanceTracker("DataExport",
+            ("RequestId", request.Id),
+            ("ExportFormat", request.Format.ToString()),
+            ("RecordCount", request.Records.Count));
+
         try
         {
-            var path = ResolveUiStatePath(directory);
-            ctx.Add("ResolvedPath", path);
-            
-            var dir = Path.GetDirectoryName(path);
-            if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir))
-            {
-                Directory.CreateDirectory(dir);
-                ctx.Add("DirectoryCreated", true);
-                LogCtx.Logger.Debug("Created directory for UI state file");
-            }
-            
-            var json = JsonSerializer.Serialize(state, new JsonSerializerOptions 
-            { 
-                WriteIndented = true 
-            });
-            
-            ctx.Add("JsonLength", json.Length);
-            ctx.Add("ColumnCount", state.RecentFilesColumnWidths.Count);
-            
-            File.WriteAllText(path, json);
-            
-            ctx.Add("SaveSuccess", true);
-            LogCtx.Logger.Info("UI state saved successfully");
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            ctx.Add("ErrorType", "UnauthorizedAccess");
-            LogCtx.Logger.Warn(ex, "Access denied saving UI state");
-            // Defensive: swallow to avoid UI disruption during resize/drags
-        }
-        catch (IOException ex)
-        {
-            ctx.Add("ErrorType", "IOException");
-            ctx.Add("IOError", ex.Message);
-            LogCtx.Logger.Warn(ex, "IO error saving UI state");
-            // Defensive: swallow to avoid UI disruption
+            // Step 1: Data validation
+            tracker.AddCheckpoint("ValidationStarted");
+            await ValidateDataAsync(request.Records);
+            tracker.AddCheckpoint("ValidationCompleted", 
+                ("ValidRecords", request.Records.Count(r => r.IsValid)));
+
+            // Step 2: Data transformation
+            tracker.AddCheckpoint("TransformationStarted");
+            var transformedData = await TransformDataAsync(request.Records);
+            tracker.IncrementCounter("TransformedRecords", transformedData.Count);
+            tracker.AddCheckpoint("TransformationCompleted",
+                ("TransformedRecords", transformedData.Count));
+
+            // Step 3: Export generation
+            tracker.AddCheckpoint("ExportStarted");
+            var exportResult = await GenerateExportAsync(transformedData, request.Format);
+            tracker.AddMetric("ExportSizeBytes", exportResult.SizeBytes);
+            tracker.AddCheckpoint("ExportCompleted");
+
+            return exportResult;
         }
         catch (Exception ex)
         {
-            ctx.Add("ErrorType", ex.GetType().Name);
-            LogCtx.Logger.Warn(ex, "Unexpected error saving UI state");
-            // Defensive: swallow to avoid UI disruption
+            tracker.AddMetric("ErrorType", ex.GetType().Name);
+            tracker.AddCheckpoint("OperationFailed");
+            throw;
         }
     }
 }
@@ -872,50 +733,27 @@ public sealed class UiStateConfig
 
 ---
 
-## 🎯 **Key VecTool LogCtx Patterns Summary**
+## ⚡ **Performance Best Practices Summary**
 
-### **✅ Initialization Pattern**
-- **Failsafe startup**: `FailsafeLogger.Initialize()` never throws
-- **Rich startup context**: Version, environment, process info
-- **Graceful error handling**: Fatal exceptions with context
+### **✅ DO:**
+1. **Initialize once** per application with `FailsafeLogger.Initialize("NLog.config")`
+2. **Always use** `using var ctx = LogCtx.Set()` for proper disposal
+3. **Include both** required using statements in every file
+4. **Add meaningful properties** that provide operational value
+5. **Use structured properties** for SEQ query optimization
+6. **Batch logging** for high-frequency operations
+7. **Include correlation IDs** for distributed tracing
 
-### **✅ Configuration Loading Pattern**
-- **Validation with context**: Parameter validation with detailed errors
-- **Fallback strategies**: Default values when config is missing/invalid
-- **Parse tracking**: Log success/failure of configuration parsing
-
-### **✅ File Operations Pattern**  
-- **Path resolution**: Always log resolved paths for debugging
-- **Size and metadata**: Include file size, modification times
-- **Error categorization**: IOException vs UnauthorizedAccess vs JsonException
-
-### **✅ Collection Management Pattern**
-- **Policy enforcement**: Max count, retention policies with metrics
-- **Duplicate handling**: Remove and count duplicates
-- **Performance tracking**: Execution times, item counts
-
-### **✅ Testing Pattern**
-- **Fixture-level initialization**: `FailsafeLogger.Initialize()` in OneTimeSetUp
-- **Test execution tracking**: Start/end times, execution metrics  
-- **Assertion counting**: Track number of assertions passed
-- **Cleanup logging**: Success/failure of test cleanup
-
-### **✅ Validation Pattern**
-- **Input validation**: Check nulls, ranges, formats
-- **Result enrichment**: Include validation details in context
-- **Performance measurement**: Track validation execution time
-
-### **✅ UI State Pattern**
-- **Defensive programming**: Never crash UI on file operations
-- **File existence checking**: Always check before operations
-- **Graceful degradation**: Use defaults when persistence fails
-
-### **✅ Error Handling Strategy**
-- **Context enrichment**: Add error type, operation details
-- **Categorized logging**: Info/Warn/Error based on severity
-- **Preserve exceptions**: Re-throw with additional context
-- **Defensive patterns**: Swallow non-critical errors in UI operations
+### **❌ DON'T:**
+1. **Never use** `LogCtx.InitLogCtx()` - it doesn't exist!
+2. **Never omit** required using statements
+3. **Never create** contexts in tight loops without batching
+4. **Never forget** to dispose contexts with `using` statements
+5. **Never initialize** multiple times in the same process
+6. **Never ignore** exception context enrichment
 
 ---
 
-**Next Steps**: See [SEQ-Configuration-Guide.md](SEQ-Configuration-Guide.md) for querying these rich contexts in SEQ dashboards! 🚀
+**Version:** 0.3.1  
+**Last Updated:** October 2025  
+**Framework Compatibility:** .NET 8.0+, NLog 6.0.4+, NUnit 4.x+
