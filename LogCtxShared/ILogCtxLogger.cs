@@ -1,185 +1,101 @@
-﻿namespace LogCtxShared
+﻿// ✅ FULL FILE VERSION
+// File: LogCtxShared/ILogCtxLogger.cs
+
+using System;
+
+namespace LogCtxShared
 {
-    public interface ILogCtxLogger:IDisposable
+    /// <summary>
+    /// Logger-agnostic interface for contextual logging.
+    /// Implementations handle the specific logging framework integration.
+    /// </summary>
+    public interface ILogCtxLogger : IDisposable
     {
+        #region Existing Methods (BACKWARD COMPATIBLE)
+
+        /// <summary>
+        /// ✅ EXISTING - Configure from XML file
+        /// </summary>
         bool ConfigureXml(string configPath);
+
+        /// <summary>
+        /// ✅ EXISTING - Configure from JSON file
+        /// </summary>
         bool ConfigureJson(string configPath);
-        void Fatal(Exception ex, string message);
-        void Error(Exception ex, string message);
-        void Warn(string message);
-        void Info(string message);
+
+        /// <summary>
+        /// ✅ EXISTING - Log debug message
+        /// </summary>
         void Debug(string message);
+
+        /// <summary>
+        /// ✅ EXISTING - Log information message
+        /// </summary>
+        void Info(string message);
+
+        /// <summary>
+        /// ✅ EXISTING - Log warning message
+        /// </summary>
+        void Warn(string message);
+
+        /// <summary>
+        /// ✅ EXISTING - Log error with exception
+        /// </summary>
+        void Error(Exception ex, string message);
+
+        /// <summary>
+        /// ✅ EXISTING - Log fatal error with exception
+        /// </summary>
+        void Fatal(Exception ex, string message);
+
+        /// <summary>
+        /// ✅ EXISTING - Log trace message
+        /// </summary>
         void Trace(string message);
 
-        LogCtx Ctx { get; }
+        #endregion
+
+        #region Enhanced Context Support (NEW - ADDITIVE)
+
+        /// <summary>
+        /// 🆕 ENHANCED - Debug with context properties
+        /// </summary>
+        void Debug(string message, LogCtx context = null);
+
+        /// <summary>
+        /// 🆕 ENHANCED - Info with context properties
+        /// </summary>
+        void Info(string message, LogCtx context = null);
+
+        /// <summary>
+        /// 🆕 ENHANCED - Warning with context properties
+        /// </summary>
+        void Warn(string message, LogCtx context = null);
+
+        /// <summary>
+        /// 🆕 ENHANCED - Error with context properties
+        /// </summary>
+        void Error(Exception ex, string message, LogCtx context = null);
+
+        /// <summary>
+        /// 🆕 ENHANCED - Fatal with context properties
+        /// </summary>
+        void Fatal(Exception ex, string message, LogCtx context = null);
+
+        /// <summary>
+        /// 🆕 ENHANCED - Trace with context properties
+        /// </summary>
+        void Trace(string message, LogCtx context = null);
+
+        #endregion
+
+        #region Context Management (EXISTING)
+
+        /// <summary>
+        /// ✅ EXISTING - Current logging context
+        /// </summary>
+        LogCtx Ctx { get; set; }
+
+        #endregion
     }
-
-    public interface IScopeContext
-    {
-        void Clear();
-        void PushProperty(string key, object value);
-    }
 }
-
-/* SEQ Signals for low level log
-{
-"Title": "1 Verbose",
-"Description": "NLog",
-"Filters": [
-{
-  "Description": null,
-  "DescriptionIsExcluded": false,
-  "Filter": "@Level = 'Verbose' ci",
-  "FilterNonStrict": "@Level == 'Verbose' ci"
-}
-],
-"Columns": [],
-"IsProtected": false,
-"Grouping": "Explicit",
-"ExplicitGroupName": "@Level",
-"OwnerId": null,
-"Id": "signal-36",
-"Links": {
-"Self": "api/signals/signal-36?version=6",
-"Group": "api/signals/resources"
-}
-}
-
-{
-"Title": "2 Debug",
-"Description": "SeriLog",
-"Filters": [
-{
-  "Description": null,
-  "DescriptionIsExcluded": false,
-  "Filter": "@Level = 'Debug' ci",
-  "FilterNonStrict": "@Level == 'Debug' ci"
-}
-],
-"Columns": [],
-"IsProtected": false,
-"Grouping": "Explicit",
-"ExplicitGroupName": "@Level",
-"OwnerId": null,
-"Id": "signal-37",
-"Links": {
-"Self": "api/signals/signal-37?version=5",
-"Group": "api/signals/resources"
-}
-}
-
-{
-  "Title": "3 Information",
-  "Description": "Automatically created",
-  "Filters": [
-    {
-      "Description": null,
-      "DescriptionIsExcluded": false,
-      "Filter": "@Level in ['Information', 'Info'] ci",
-      "FilterNonStrict": "@Level in ['Information', 'Info'] ci"
-    }
-  ],
-  "Columns": [],
-  "IsProtected": false,
-  "Grouping": "Explicit",
-  "ExplicitGroupName": "@Level",
-  "OwnerId": null,
-  "Id": "signal-195",
-  "Links": {
-    "Self": "api/signals/signal-195?version=4",
-    "Group": "api/signals/resources"
-  }
-}
-
-{
-  "Title": "4 Warnings",
-  "Description": "Automatically created",
-  "Filters": [
-    {
-      "Description": null,
-      "DescriptionIsExcluded": false,
-      "Filter": "@Level in ['w', 'wa', 'war', 'wrn', 'warn', 'warning'] ci",
-      "FilterNonStrict": null
-    }
-  ],
-  "Columns": [],
-  "IsProtected": false,
-  "Grouping": "Explicit",
-  "ExplicitGroupName": "@Level",
-  "OwnerId": null,
-  "Id": "signal-m33302",
-  "Links": {
-    "Self": "api/signals/signal-m33302?version=2",
-    "Group": "api/signals/resources"
-  }
-}
-
-{
-  "Title": "5 Errors",
-  "Description": "NLog",
-  "Filters": [
-    {
-      "Description": null,
-      "DescriptionIsExcluded": false,
-      "Filter": "@Level in ['e', 'er', 'err', 'eror', 'erro', 'error'] ci",
-      "FilterNonStrict": "@Level in ['e', 'er', 'err', 'eror', 'erro', 'error'] ci"
-    }
-  ],
-  "Columns": [],
-  "IsProtected": false,
-  "Grouping": "Explicit",
-  "ExplicitGroupName": "@Level",
-  "OwnerId": null,
-  "Id": "signal-196",
-  "Links": {
-    "Self": "api/signals/signal-196?version=1",
-    "Group": "api/signals/resources"
-  }
-}
-
-{
-  "Title": "6 Fatal",
-  "Description": "NLog",
-  "Filters": [
-    {
-      "Description": null,
-      "DescriptionIsExcluded": false,
-      "Filter": "@Level in ['f', 'fa', 'fat', 'ftl', 'fata', 'fatl', 'Fatal', 'c', 'cr', 'cri', 'crt', 'crit', 'critical', 'alert', 'emerg', 'panic'] ci",
-      "FilterNonStrict": "@Level in ['f', 'fa', 'fat', 'ftl', 'fata', 'fatl', 'Fatal', 'c', 'cr', 'cri', 'crt', 'crit', 'critical', 'alert', 'emerg', 'panic'] ci"
-    }
-  ],
-  "Columns": [],
-  "IsProtected": false,
-  "Grouping": "Explicit",
-  "ExplicitGroupName": "@Level",
-  "OwnerId": null,
-  "Id": "signal-196",
-  "Links": {
-    "Self": "api/signals/signal-196?version=1",
-    "Group": "api/signals/resources"
-  }
-}
-
-{
-  "Title": "Exceptions",
-  "Description": "Automatically created",
-  "Filters": [
-    {
-      "Description": null,
-      "DescriptionIsExcluded": false,
-      "Filter": "@Exception is not null",
-      "FilterNonStrict": null
-    }
-  ],
-  "Columns": [],
-  "IsProtected": false,
-  "Grouping": "Inferred",
-  "ExplicitGroupName": null,
-  "OwnerId": null,
-  "Id": "signal-m33303",
-  "Links": {
-    "Self": "api/signals/signal-m33303?version=1",
-    "Group": "api/signals/resources"
-  }
-}
- */

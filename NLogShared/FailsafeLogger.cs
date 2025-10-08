@@ -1,65 +1,78 @@
-// File: LogCtx/NLogShared/FailsafeLogger.cs
+// ✅ FULL FILE VERSION
+// File: NLogShared/FailsafeLogger.cs
+
 using System;
 using System.IO;
 using NLog;
 using NLog.Config;
 using NLog.Targets;
+using LogCtxShared;
 
 namespace NLogShared
 {
-    // Intent: a single, robust entry point that never throws on logger startup.
-    // It uses AppContext.BaseDirectory for stable pathing and falls back to a minimal in-memory config.
+    /// <summary>
+    /// Intent: a single, robust entry point that never throws on logger startup.
+    /// It uses AppContext.BaseDirectory for stable pathing and falls back to a minimal in-memory config.
+    /// 🆕 ENHANCED - Now properly initializes LogCtx.Logger for fluent API support.
+    /// </summary>
     public static class FailsafeLogger
     {
         public static bool Initialize(string? preferredFileName = "NLog.config", string? altJsonFileName = "NLog.json")
         {
             try
             {
-                // 1) Stable base directory across VS, VS Code, and direct EXE launch.
                 var baseDir = AppContext.BaseDirectory;
                 var xmlPath = Path.Combine(baseDir, preferredFileName ?? "NLog.config");
                 var jsonPath = Path.Combine(baseDir, altJsonFileName ?? "NLog.json");
 
-                // 2) Try XML via existing LogCtx CtxLogger first.
                 var ctx = new CtxLogger();
-                if (File.Exists(xmlPath))
+
+                if (File.Exists(xmlPath) && ctx.ConfigureXml(xmlPath))
                 {
-                    var ok = ctx.ConfigureXml(xmlPath);
-                    if (ok)
-                        return true;
+                    LogCtx.Logger = ctx;
+                    return true;
                 }
 
-                // 3) Try JSON as a second chance.
-                if (File.Exists(jsonPath))
+                if (File.Exists(jsonPath) && ctx.ConfigureJson(jsonPath))
                 {
-                    var ok = ctx.ConfigureJson(jsonPath);
-                    if (ok)
-                        return true;
+                    LogCtx.Logger = ctx;
+                    return true;
                 }
 
-                // 4) Last resort: build a minimal in-memory NLog config (console + rolling file).
                 ApplyMinimalFallback(baseDir);
+
+                ctx = new CtxLogger();
+                ctx.ConfigureXml(null);
+                LogCtx.Logger = ctx;
+                
                 return true;
             }
             catch
             {
-                // Absolutely never throw; if even fallback fails, force a no-op logger.
                 ApplyNoOpFallback();
+                try
+                {
+                    var noOpCtx = new CtxLogger();
+                    LogCtx.Logger = noOpCtx;
+                }
+                catch
+                {
+                    LogCtx.Logger = null!;
+                }
                 return true;
             }
         }
 
         private static void ApplyMinimalFallback(string baseDir)
         {
-            // Create logs directory next to the app if possible.
             string logs = Path.Combine(baseDir, "logs");
-            try { Directory.CreateDirectory(logs); } catch { /* ignore */ }
+            try { Directory.CreateDirectory(logs); } catch { }
 
             var config = new LoggingConfiguration();
 
             var console = new ConsoleTarget("console")
             {
-                Layout = "${longdate}|${level:uppercase=true}|${logger}|${message} ${exception:format=tostring}"
+                Layout = "${longdate} ${level:uppercase=true} ${logger} ${message} ${exception:format=toString}"
             };
 
             var file = new FileTarget("file")
@@ -68,7 +81,7 @@ namespace NLogShared
                 ArchiveFileName = Path.Combine(logs, "app.{#}.log"),
                 ArchiveAboveSize = 5_000_000,
                 MaxArchiveFiles = 5,
-                Layout = "${longdate}|${level:uppercase=true}|${logger}|${message} ${exception:format=tostring}"
+                Layout = "${longdate} ${level:uppercase=true} ${logger} ${message} ${exception:format=toString}"
             };
 
             config.AddTarget(console);
@@ -81,7 +94,6 @@ namespace NLogShared
 
         private static void ApplyNoOpFallback()
         {
-            // Minimal config that discards logs, ensuring no startup failure.
             var config = new LoggingConfiguration();
             var nullTarget = new NullTarget("null");
             config.AddTarget(nullTarget);
