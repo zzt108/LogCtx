@@ -1,5 +1,6 @@
 ﻿// ✅ FULL FILE VERSION
 // File: LogCtxShared/LogCtx.cs
+
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -8,8 +9,8 @@ using System.IO;
 namespace LogCtxShared
 {
     /// <summary>
-    /// Logger-agnostic contextual logging utility supporting both traditional and fluent APIs.
-    /// Maintains full backward compatibility with existing AddProperty patterns.
+    /// Contextual logging utility supporting both traditional and fluent APIs.
+    /// Maintains full backward compatibility with existing AddProperty/Logger patterns.
     /// </summary>
     public sealed class LogCtx : IDisposable
     {
@@ -19,31 +20,45 @@ namespace LogCtxShared
         private readonly int _sourceLineNumber;
         private bool _disposed;
 
-        #region Static Logger Access (EXISTING PATTERN)
-        
+        #region Static Logger Access
+
         /// <summary>
-        /// ✅ EXISTING - Static logger access (set by LogCtx implementation)
-        /// This is null until FailsafeLogger.Initialize() is called
+        /// Static logger access (set by FailsafeLogger.Initialize)
         /// </summary>
         public static ILogCtxLogger? Logger { get; internal set; }
 
         /// <summary>
-        /// ✅ EXISTING - Check if LogCtx can log
+        /// Indicates if a logger has been configured
         /// </summary>
         public static bool CanLog => Logger != null;
 
         #endregion
 
-        #region Existing Constructor & Methods (BACKWARD COMPATIBLE)
-        
+        #region Constructors & Factories
+
         /// <summary>
         /// ✅ EXISTING - Create new logging context with automatic caller info
         /// </summary>
-        public static LogCtx Set([CallerMemberName] string memberName = "",
-                               [CallerFilePath] string sourceFilePath = "",
-                               [CallerLineNumber] int sourceLineNumber = 0)
+        public static LogCtx Set(
+            [CallerMemberName] string memberName = "",
+            [CallerFilePath] string sourceFilePath = "",
+            [CallerLineNumber] int sourceLineNumber = 0)
         {
             return new LogCtx(memberName, sourceFilePath, sourceLineNumber);
+        }
+
+        /// <summary>
+        /// 🆕 NEW OVERLOAD - Create context from Props and add all properties
+        /// </summary>
+        public static LogCtx Set(
+            Props props,
+            [CallerMemberName] string memberName = "",
+            [CallerFilePath] string sourceFilePath = "",
+            [CallerLineNumber] int sourceLineNumber = 0)
+        {
+            var ctx = new LogCtx(memberName, sourceFilePath, sourceLineNumber);
+            ctx.With(props.Properties);
+            return ctx;
         }
 
         private LogCtx(string memberName, string sourceFilePath, int sourceLineNumber)
@@ -52,167 +67,124 @@ namespace LogCtxShared
             _memberName = memberName;
             _sourceFilePath = sourceFilePath;
             _sourceLineNumber = sourceLineNumber;
-            
-            // ✅ EXISTING - Auto-add caller info
+
+            // Auto-add caller info
             AddProperty("MemberName", memberName);
             AddProperty("SourceFile", Path.GetFileName(sourceFilePath));
             AddProperty("LineNumber", sourceLineNumber);
         }
 
+        #endregion
+
+        #region Traditional API
+
         /// <summary>
-        /// ✅ EXISTING - Add property to context (traditional API)
+        /// ✅ EXISTING - Add property to context
         /// </summary>
         public void AddProperty(string key, object value)
         {
             if (string.IsNullOrWhiteSpace(key))
                 throw new ArgumentException("Property key cannot be null or empty", nameof(key));
-                
             _properties[key] = value;
         }
 
         /// <summary>
-        /// ✅ EXISTING - Get all properties
+        /// ✅ EXISTING - Read-only view of properties
         /// </summary>
         public IReadOnlyDictionary<string, object> Properties => _properties;
 
         #endregion
 
-        #region New Fluent API Extensions (ADDITIVE)
+        #region Fluent Extensions
 
-        /// <summary>
-        /// 🆕 FLUENT - Add property and return this for chaining
-        /// </summary>
         public LogCtx With(string key, object value)
         {
             AddProperty(key, value);
             return this;
         }
 
-        /// <summary>
-        /// 🆕 FLUENT - Add multiple properties from anonymous object
-        /// </summary>
         public LogCtx With(object properties)
         {
             if (properties == null) return this;
-
-            var type = properties.GetType();
-            foreach (var prop in type.GetProperties())
-            {
+            foreach (var prop in properties.GetType().GetProperties())
                 AddProperty(prop.Name, prop.GetValue(properties) ?? "null");
-            }
             return this;
         }
 
-        /// <summary>
-        /// 🆕 FLUENT - Add properties from dictionary
-        /// </summary>
         public LogCtx With(IDictionary<string, object> properties)
         {
             if (properties == null) return this;
-            
-            foreach (var kvp in properties)
-            {
-                AddProperty(kvp.Key, kvp.Value);
-            }
+            foreach (var kv in properties)
+                AddProperty(kv.Key, kv.Value);
             return this;
         }
 
-        /// <summary>
-        /// 🆕 FLUENT - Conditional property addition
-        /// </summary>
         public LogCtx WithIf(bool condition, string key, object value)
         {
-            if (condition)
-                AddProperty(key, value);
+            if (condition) AddProperty(key, value);
             return this;
         }
 
-        /// <summary>
-        /// 🆕 FLUENT - Add timing information
-        /// </summary>
         public LogCtx WithTiming(string operationName, TimeSpan duration)
-        {
-            return With($"{operationName}DurationMs", duration.TotalMilliseconds)
-                  .With($"{operationName}Duration", duration.ToString());
-        }
+            => With($"{operationName}DurationMs", duration.TotalMilliseconds)
+               .With($"{operationName}Duration", duration.ToString());
 
-        /// <summary>
-        /// 🆕 FLUENT - Add exception context
-        /// </summary>
         public LogCtx WithException(Exception ex, string prefix = "Error")
         {
             if (ex == null) return this;
-            
             return With($"{prefix}Type", ex.GetType().Name)
-                  .With($"{prefix}Message", ex.Message)
-                  .With($"{prefix}StackTrace", ex.StackTrace ?? "");
+                   .With($"{prefix}Message", ex.Message)
+                   .With($"{prefix}StackTrace", ex.StackTrace ?? "");
         }
 
         #endregion
 
-        #region Fluent Logging Methods (Null-Safe)
+        #region Fluent Logging
 
-        /// <summary>
-        /// 🆕 FLUENT - Log information and return context for further chaining
-        /// Returns this context even if Logger is null (graceful degradation)
-        /// </summary>
         public LogCtx LogInfo(string message)
         {
-            Logger?.Info(message); // Uses existing ILogCtxLogger.Info
+            Logger?.Info(message, this);
             return this;
         }
 
-        /// <summary>
-        /// 🆕 FLUENT - Log warning and return context
-        /// </summary>
         public LogCtx LogWarning(string message)
         {
-            Logger?.Warn(message); // Uses existing ILogCtxLogger.Warn
+            Logger?.Warn(message, this);
             return this;
         }
 
-        /// <summary>
-        /// 🆕 FLUENT - Log error and return context
-        /// </summary>
         public LogCtx LogError(string message, Exception? ex = null)
         {
             if (ex != null)
-                Logger?.Error(ex, message);
+                Logger?.Error(ex, message, this);
             else
-                Logger?.Error(new InvalidOperationException(message), message);
+                Logger?.Error(new InvalidOperationException(message), message, this);
             return this;
         }
 
-        /// <summary>
-        /// 🆕 FLUENT - Log debug and return context
-        /// </summary>
         public LogCtx LogDebug(string message)
         {
-            Logger?.Debug(message); // Uses existing ILogCtxLogger.Debug
+            Logger?.Debug(message, this);
             return this;
         }
 
-        /// <summary>
-        /// 🆕 FLUENT - Log fatal error and return context
-        /// </summary>
         public LogCtx LogFatal(string message, Exception? ex = null)
         {
             if (ex != null)
-                Logger?.Fatal(ex, message);
+                Logger?.Fatal(ex, message, this);
             else
-                Logger?.Fatal(new InvalidOperationException(message), message);
+                Logger?.Fatal(new InvalidOperationException(message), message, this);
             return this;
         }
 
         #endregion
 
-        #region Existing Disposal (UNCHANGED)
+        #region Dispose
 
         public void Dispose()
         {
             if (!_disposed)
             {
-                // ✅ EXISTING - Cleanup logic unchanged
                 _properties.Clear();
                 _disposed = true;
             }
