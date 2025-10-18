@@ -22,7 +22,7 @@ namespace NLogShared
         public CtxLogger(string logConfigPath)
         {
             // ConfigureXml(logConfigPath);
-            FailsafeLogger.Initialize(logConfigPath);
+            FailsafeLogger.Initialize(this, logConfigPath);
             Logger = LogManager.GetCurrentClassLogger();
             Ctx = new LogCtxShared.LogCtx(new NLogScopeContext()); // Initialize the context
         }
@@ -119,7 +119,7 @@ Refactoring: Remove the LogManager.Shutdown() call from Dispose. NLog can often 
     // It uses AppContext.BaseDirectory for stable pathing and falls back to a minimal in-memory config.
     internal static class FailsafeLogger
     {
-        public static bool Initialize(string? preferredFileName = "NLog.config", string? altJsonFileName = "NLog.json")
+        public static bool Initialize(CtxLogger ctx, string? preferredFileName = "NLog.config", string? altJsonFileName = "NLog.json")
         {
             try
             {
@@ -129,7 +129,6 @@ Refactoring: Remove the LogManager.Shutdown() call from Dispose. NLog can often 
                 var jsonPath = Path.Combine(baseDir, altJsonFileName ?? "NLog.json");
 
                 // 2) Try XML via existing LogCtx CtxLogger first.
-                var ctx = new CtxLogger();
                 if (File.Exists(xmlPath))
                 {
                     var ok = ctx.ConfigureXml(xmlPath);
