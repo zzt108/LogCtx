@@ -29,10 +29,10 @@ namespace NLogShared
 
         public bool ConfigureXml(string? configPath)
         {
-            if (configPath is null)
-            {
-                return false;
-            }
+            //if (configPath is null)
+            //{
+            //    return false;
+            //}
 
             if (_isConfigured)
             {
@@ -42,6 +42,7 @@ namespace NLogShared
             try
             {
                 var config = new LoggingConfiguration();
+                if (configPath is null) { configPath = "Config\\LogConfig.xml"; }
                 // Use the modern way to configure
                 LogManager.Setup().LoadConfigurationFromFile(configPath, optional: false);
                 LogManager.AutoShutdown = true; // Ensure NLog cleans up on app exit
@@ -51,7 +52,10 @@ namespace NLogShared
             }
             catch (Exception ex)
             {
-                throw new ArgumentException("Failed to configure logger from XML.", configPath);
+                Console.WriteLine(ex);
+                Console.WriteLine("Failed to configure logger from XML.", configPath);
+                return false;
+                // throw new ArgumentException("Failed to configure logger from XML.", configPath);
             }
         }
 
