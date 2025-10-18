@@ -90,9 +90,13 @@ Refactoring: Remove the LogManager.Shutdown() call from Dispose. NLog can often 
             Logger?.Info(message);
         }
 
-        public CtxLogger()
+        public CtxLogger(): this(_logConfigPath)
         {
-            ConfigureXml(_logConfigPath);
+        }
+
+        public CtxLogger(string logConfigPath)
+        {
+            ConfigureXml(logConfigPath);
             Logger = LogManager.GetCurrentClassLogger();
             Ctx = new LogCtxShared.LogCtx(new NLogScopeContext()); // Initialize the context
         }
