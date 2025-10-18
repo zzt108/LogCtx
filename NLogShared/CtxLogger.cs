@@ -116,7 +116,7 @@ Refactoring: Remove the LogManager.Shutdown() call from Dispose. NLog can often 
 
         // Intent: a single, robust entry point that never throws on logger startup.
     // It uses AppContext.BaseDirectory for stable pathing and falls back to a minimal in-memory config.
-    private static class FailsafeLogger
+    internal static class FailsafeLogger
     {
         public static bool Initialize(string? preferredFileName = "NLog.config", string? altJsonFileName = "NLog.json")
         {

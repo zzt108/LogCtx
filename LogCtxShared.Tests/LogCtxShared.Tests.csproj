@@ -24,4 +24,6 @@
 
   <Import Project="..\LogCtxShared\LogCtxShared.projitems" Label="Shared" />
 
+  <Import Project="..\NLogShared\NLogShared.projitems" Label="Shared" />
+
 </Project>
