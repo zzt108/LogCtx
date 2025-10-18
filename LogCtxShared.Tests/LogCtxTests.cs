@@ -72,10 +72,11 @@ namespace LogCtxShared.Tests
             var enriched = Log.Ctx.Set(new Props("X"));
 
             // Assert
-            var s = enriched["CTXSTRACE"] as string;
+            var s = enriched["CTX_STRACE"] as string;
             s.ShouldNotBeNullOrWhiteSpace();
-            // Expect pattern like "FileName.csMethodName123"
-            Regex.IsMatch(s, @"\w+\.cs\w+\d+").ShouldBeTrue($"Unexpected CTXSTRACE header: {s}");
+            // Expect pattern like "FileName.MethodName123"
+            s.ShouldContain("LogCtxTests::SetCtxStraceFormatBeginsWithFileMethodLineAndFiltersTestNoise::");
+            // Regex.IsMatch(s, @"\w*\LogCtxTests::SetCtxStraceFormatBeginsWithFileMethodLineAndFiltersTestNoise::\d+").ShouldBeTrue($"Unexpected CTXSTRACE header: {s}");
             // Heuristic filter checks: avoid common framework noise lines when possible
             s.IndexOf(" at NUnit.", StringComparison.OrdinalIgnoreCase).ShouldBe(-1);
         }
@@ -107,9 +108,9 @@ namespace LogCtxShared.Tests
             var enriched = Log.Ctx.Set(props);
 
             // Assert
-            scope.Pushed.ShouldContain(kv => kv.Key == "P00" && kv.Value != null && kv.Value.ToString() == "A".AsJson(true));
-            scope.Pushed.ShouldContain(kv => kv.Key == "P01" && kv.Value != null && kv.Value.ToString() == "A".AsJson(true));
-            scope.Pushed.ShouldContain(kv => kv.Key == "Custom" && kv.Value != null && kv.Value.ToString() == "A".AsJson(true));
+            scope.Pushed.ShouldContain(kv => kv.Key == "P00" && kv.Value != null && kv.Value.ToString() == 123.ToString());
+            scope.Pushed.ShouldContain(kv => kv.Key == "P01" && kv.Value != null && kv.Value.ToString() == true.ToString());
+            scope.Pushed.ShouldContain(kv => kv.Key == "Custom" && kv.Value != null && kv.Value.ToString() == "Z");
             enriched["P00"].ShouldBe(123);
             enriched["P01"].ShouldBe(true);
             enriched["Custom"].ShouldBe("Z");
@@ -128,7 +129,7 @@ namespace LogCtxShared.Tests
 
             // Assert
             ReferenceEquals(enriched, original).ShouldBeTrue("Set should enrich and return the same Props instance");
-            enriched.ContainsKey("CTXSTRACE").ShouldBeTrue();
+            enriched.ContainsKey("CTX_STRACE").ShouldBeTrue();
         }
 
         private sealed class FakeScopeContext : IScopeContext
