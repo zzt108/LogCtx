@@ -1,6 +1,7 @@
 ﻿using LogCtxShared;
 using NLog;
 using NLog.Config;
+using NLog.Targets;
 
 namespace NLogShared
 {

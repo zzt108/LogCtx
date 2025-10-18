@@ -1,5 +1,4 @@
-﻿// ✅ FULL FILE VERSION
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using Shouldly;
 using LogCtxShared;
 using NLogShared;
