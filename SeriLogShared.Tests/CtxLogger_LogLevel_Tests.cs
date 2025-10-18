@@ -3,9 +3,9 @@
 using NLogShared;
 using NUnit.Framework;
 using NUnit.Framework.Internal;
-//using Serilog;
-//using Serilog.Core;
-//using Serilog.Events;
+using Serilog;
+using Serilog.Core;
+using Serilog.Events;
 using SeriLogShared;
 using Shouldly;
 using System;
@@ -20,7 +20,7 @@ namespace SeriLogShared.Tests
     public class CtxLogger_LogLevel_Tests
     {
         private TestSink _sink;
-        private Logger _testLogger;
+        private Serilog.Core.Logger _testLogger;
         private CtxLogger _ctxLogger = new();
 
         // private CtxLogger Log = new();
@@ -30,13 +30,13 @@ namespace SeriLogShared.Tests
         public void SetUp()
         {
             _sink = new TestSink();
-            //_testLogger = new LoggerConfiguration()
-            //    .MinimumLevel.Verbose()
-            //    .WriteTo.Sink(_sink)
-            //    .CreateLogger();
+            _testLogger = new LoggerConfiguration()
+                .MinimumLevel.Verbose()
+                .WriteTo.Sink(_sink)
+                .CreateLogger();
 
-            //Log.CloseAndFlush();
-            //Log.Logger = _testLogger;
+            Log.CloseAndFlush();
+            Log.Logger = _testLogger;
 
             _ctxLogger = new CtxLogger();
         }
@@ -44,6 +44,7 @@ namespace SeriLogShared.Tests
         [TearDown]
         public void TearDown()
         {
+            _testLogger?.Dispose();
             _ctxLogger?.Dispose();
         }
 
