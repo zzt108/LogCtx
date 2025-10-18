@@ -9,7 +9,7 @@
     <Import_RootNamespace>SeriLogShared</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\LogCtx\SeriLogShared\CtxLogger.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)CtxLogger.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />

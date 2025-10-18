@@ -10,18 +10,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="6.0.2">
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="FluentAssertions" Version="6.12.1" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
-    <PackageReference Include="NUnit" Version="4.2.2" />
-    <PackageReference Include="NUnit.Analyzers" Version="4.3.0">
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.0" />
+    <PackageReference Include="NUnit" Version="4.4.0" />
+    <PackageReference Include="NUnit.Analyzers" Version="4.10.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="5.2.0" />
+    <PackageReference Include="Shouldly" Version="4.3.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -40,5 +40,16 @@
   <Import Project="..\SeriLogShared\SeriLogShared.projitems" Label="Shared" />
 
   <Import Project="..\LogCtxShared\LogCtxShared.projitems" Label="Shared" />
+
+  <ItemGroup>
+    <PackageReference Update="Microsoft.Extensions.Configuration" Version="9.0.10" />
+    <PackageReference Update="Microsoft.Extensions.Configuration.Json" Version="9.0.10" />
+    <PackageReference Update="Microsoft.Extensions.Configuration.Xml" Version="9.0.10" />
+    <PackageReference Update="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Update="Serilog" Version="4.3.0" />
+    <PackageReference Update="Serilog.Extensions.Logging" Version="9.0.2" />
+    <PackageReference Update="Serilog.Settings.Configuration" Version="9.0.0" />
+    <PackageReference Update="Serilog.Sinks.Seq" Version="9.0.0" />
+  </ItemGroup>
 
 </Project>

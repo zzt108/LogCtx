@@ -1,6 +1,7 @@
-using FluentAssertions;
 using NUnit.Framework;
-using SeriLogAdapter;
+using LogCtxShared;
+using SeriLogShared;
+using Shouldly;
 
 namespace SeriLogAdapter.Tests
 {
@@ -24,13 +25,13 @@ namespace SeriLogAdapter.Tests
         public void Configure_ShouldReadConfigurationFile()
         {
             // Arrange
-            var seriLogCtx = new SeriLogCtx();
+            var seriLogCtx = new CtxLogger();
 
             // Act
             var result = seriLogCtx.ConfigureJson(ConfigPathJson);
 
             // Assert
-            result.Should().BeTrue(); 
+            result.ShouldBeTrue(); 
         }
 
         [Test]
@@ -38,7 +39,7 @@ namespace SeriLogAdapter.Tests
         {
             Serilog.Debugging.SelfLog.Enable(msg => Console.Error.WriteLine(msg));
             // Arrange
-            using var log = new SeriLogCtx();
+            using var log = new CtxLogger();
             var result = log.ConfigureXml(ConfigPathXml);
 
             // Act
