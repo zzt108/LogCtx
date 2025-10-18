@@ -12,10 +12,10 @@ namespace LogCtxShared.Tests
     [Category("unit")]
     public class LogCtxTests
     {
-        private readonly CtxLogger Log = new CtxLogger();
+        private CtxLogger Log = new( );
 
-        [OneTimeTearDown]
-        public void OneTimeTearDown()
+        [TearDown]
+        public void TearDown()
         {
             // Dispose Log to satisfy NUnit1032
             Log.Dispose();
@@ -27,6 +27,7 @@ namespace LogCtxShared.Tests
             // Arrange
             var scope = new FakeScopeContext();
             var props = new Props("A", "B");
+            Log = new CtxLogger((IScopeContext)(scope));
 
             // Act
             var enriched = Log.Ctx.Set(props);
@@ -47,6 +48,7 @@ namespace LogCtxShared.Tests
         {
             // Arrange
             var scope = new FakeScopeContext();
+            Log = new CtxLogger((IScopeContext)(scope));
 
             // Act
             var enriched = Log.Ctx.Set(null);
@@ -64,6 +66,7 @@ namespace LogCtxShared.Tests
         {
             // Arrange
             var scope = new FakeScopeContext();
+            Log = new CtxLogger((IScopeContext)(scope));
 
             // Act
             var enriched = Log.Ctx.Set(new Props("X"));
@@ -94,6 +97,7 @@ namespace LogCtxShared.Tests
         {
             // Arrange
             var scope = new FakeScopeContext();
+            Log = new CtxLogger((IScopeContext)(scope));
             var props = new Props();
             props.Add("P00", 123);
             props.Add("P01", true);
@@ -116,6 +120,7 @@ namespace LogCtxShared.Tests
         {
             // Arrange
             var scope = new FakeScopeContext();
+            Log = new CtxLogger((IScopeContext)(scope));
             var original = new Props("one");
 
             // Act

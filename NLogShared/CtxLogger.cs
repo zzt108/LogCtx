@@ -10,8 +10,8 @@ namespace NLogShared
         private static string? _logConfigPath = null;
         private static bool _isConfigured = false;
 
-        private Logger? Logger;
-        private LogCtxShared.LogCtx _ctx;
+        private readonly Logger? Logger;
+        private readonly LogCtxShared.LogCtx? _ctx;
 
         public LogCtxShared.LogCtx Ctx { get; }
 
@@ -19,12 +19,21 @@ namespace NLogShared
         {
         }
 
-        public CtxLogger(string logConfigPath)
+        public CtxLogger(IScopeContext? scopeContext = null): this(_logConfigPath, scopeContext)
+        {
+        }
+
+        public CtxLogger(string? logConfigPath) : this(logConfigPath, null)
+        {
+        }
+
+        public CtxLogger(string? logConfigPath, IScopeContext? scopeContext = null)
         {
             // ConfigureXml(logConfigPath);
             FailsafeLogger.Initialize(this, logConfigPath);
             Logger = LogManager.GetCurrentClassLogger();
-            Ctx = new LogCtxShared.LogCtx(new NLogScopeContext()); // Initialize the context
+            if (scopeContext is null) { scopeContext = new NLogScopeContext(); }
+            Ctx = new LogCtxShared.LogCtx(scopeContext); // Initialize the context
         }
 
         public bool ConfigureJson(string configPath)
