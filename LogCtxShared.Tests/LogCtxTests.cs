@@ -12,6 +12,7 @@ namespace LogCtxShared.Tests
     [Category("unit")]
     public class LogCtxTests
     {
+        const string STR_CTX_STRACE = "CTX_STRACE";
         private CtxLogger Log = new( );
 
         [TearDown]
@@ -34,13 +35,13 @@ namespace LogCtxShared.Tests
 
             // Assert
             scope.Cleared.ShouldBeTrue();
-            scope.Pushed.ShouldContain(kv => kv.Key == "CTXSTRACE" && kv.Value is string && !string.IsNullOrWhiteSpace((string)kv.Value));
+            scope.Pushed.ShouldContain(kv => kv.Key == STR_CTX_STRACE && kv.Value is string && !string.IsNullOrWhiteSpace((string)kv.Value));
             scope.Pushed.ShouldContain(kv => kv.Key == "P00" && kv.Value != null && kv.Value.ToString() == "A".AsJson(true));
-            scope.Pushed.ShouldContain(kv => kv.Key == "P00" && kv.Value != null && kv.Value.ToString() == "B".AsJson(true));
+            scope.Pushed.ShouldContain(kv => kv.Key == "P01" && kv.Value != null && kv.Value.ToString() == "B".AsJson(true));
             enriched.ShouldNotBeNull();
-            enriched.ContainsKey("CTXSTRACE").ShouldBeTrue();
-            enriched["P00"].ShouldBe("\"A\"");
-            enriched["P01"].ShouldBe("\"B\"");
+            enriched.ContainsKey(STR_CTX_STRACE).ShouldBeTrue();
+            enriched["P00"].ShouldBe("A".AsJson(true));
+            enriched["P01"].ShouldBe("B".AsJson(true));
         }
 
         [Test]
@@ -55,10 +56,10 @@ namespace LogCtxShared.Tests
 
             // Assert
             scope.Cleared.ShouldBeTrue();
-            scope.Pushed.ShouldContain(kv => kv.Key == "CTXSTRACE");
+            scope.Pushed.ShouldContain(kv => kv.Key == STR_CTX_STRACE);
             enriched.ShouldNotBeNull();
-            enriched.ContainsKey("CTXSTRACE").ShouldBeTrue();
-            (enriched["CTXSTRACE"] as string).ShouldNotBeNullOrWhiteSpace();
+            enriched.ContainsKey(STR_CTX_STRACE).ShouldBeTrue();
+            (enriched[STR_CTX_STRACE] as string).ShouldNotBeNullOrWhiteSpace();
         }
 
         [Test]
@@ -72,7 +73,7 @@ namespace LogCtxShared.Tests
             var enriched = Log.Ctx.Set(new Props("X"));
 
             // Assert
-            var s = enriched["CTX_STRACE"] as string;
+            var s = enriched[STR_CTX_STRACE] as string;
             s.ShouldNotBeNullOrWhiteSpace();
             // Expect pattern like "FileName.MethodName123"
             s.ShouldContain("LogCtxTests::SetCtxStraceFormatBeginsWithFileMethodLineAndFiltersTestNoise::");
@@ -129,7 +130,7 @@ namespace LogCtxShared.Tests
 
             // Assert
             ReferenceEquals(enriched, original).ShouldBeTrue("Set should enrich and return the same Props instance");
-            enriched.ContainsKey("CTX_STRACE").ShouldBeTrue();
+            enriched.ContainsKey(STR_CTX_STRACE).ShouldBeTrue();
         }
 
         private sealed class FakeScopeContext : IScopeContext
