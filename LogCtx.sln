@@ -13,6 +13,8 @@ Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "NLogShared", "NLogShared\NL
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogCtxShared.Tests", "LogCtxShared.Tests\LogCtxShared.Tests.csproj", "{6EB0974E-15F8-4827-AC36-7CED45225A36}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SeriLogShared.Tests", "SeriLogShared.Tests\SeriLogShared.Tests.csproj", "{6206A2EB-69B5-4A22-A1F7-A6FE78141429}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{6EB0974E-15F8-4827-AC36-7CED45225A36}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6EB0974E-15F8-4827-AC36-7CED45225A36}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6EB0974E-15F8-4827-AC36-7CED45225A36}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6206A2EB-69B5-4A22-A1F7-A6FE78141429}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6206A2EB-69B5-4A22-A1F7-A6FE78141429}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6206A2EB-69B5-4A22-A1F7-A6FE78141429}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6206A2EB-69B5-4A22-A1F7-A6FE78141429}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
