@@ -86,7 +86,6 @@ namespace SeriLogAdapter.Tests
             evt.RenderMessage().ShouldBe("debug message");
         }
 
-        // ✅ NEW: Test Info level writes to in-memory sink
         [Test]
         public void Info_Writes_Information_Level()
         {
