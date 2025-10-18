@@ -37,9 +37,9 @@
     </None>
   </ItemGroup>
 
-  <Import Project="..\SeriLogShared\SeriLogShared.projitems" Label="Shared" />
-
   <Import Project="..\LogCtxShared\LogCtxShared.projitems" Label="Shared" />
+
+  <Import Project="..\SeriLogShared\SeriLogShared.projitems" Label="Shared" />
 
   <ItemGroup>
     <PackageReference Update="Microsoft.Extensions.Configuration" Version="9.0.10" />

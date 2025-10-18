@@ -6,7 +6,7 @@ namespace NLogShared
 {
     // Intent: a single, robust entry point that never throws on logger startup.
     // It uses AppContext.BaseDirectory for stable pathing and falls back to a minimal in-memory config.
-    internal static class FailsafeLogger
+    internal static class NLogFailsafeLogger
     {
         public static bool Initialize(CtxLogger ctx, string? preferredFileName = "NLog.config", string? altJsonFileName = "NLog.json")
         {

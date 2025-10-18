@@ -6,7 +6,7 @@ namespace SeriLogShared
     // ✅ NEW — Serilog-specific failsafe logger initialization
     // Intent: Ensures at least a minimal Console + File logger exists, even when config files are missing.
     // Uses SelfLog for diagnosing Serilog configuration errors during tests/debug.
-    internal static class FailsafeLogger
+    internal static class SeriLogFailsafeLogger
     {
         public static void Initialize(string baseDir, string? jsonFile = "Config/LogConfig.json", string? xmlFile = "Config/LogConfig.xml")
         {

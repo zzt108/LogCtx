@@ -30,7 +30,7 @@ namespace NLogShared
         public CtxLogger(string? logConfigPath, IScopeContext? scopeContext = null)
         {
             // ConfigureXml(logConfigPath);
-            FailsafeLogger.Initialize(this, logConfigPath);
+            NLogFailsafeLogger.Initialize(this, logConfigPath);
             Logger = LogManager.GetCurrentClassLogger();
             if (scopeContext is null) { scopeContext = new NLogScopeContext(); }
             Ctx = new LogCtxShared.LogCtx(scopeContext); // Initialize the context

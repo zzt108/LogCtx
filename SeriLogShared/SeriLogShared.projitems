@@ -10,7 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)CtxLogger.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)FailsafeLogger.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SeriLogFailsafeLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SeriLogScopeContext.cs" />
   </ItemGroup>
   <ItemGroup>

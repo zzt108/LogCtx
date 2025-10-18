@@ -1,9 +1,6 @@
 ﻿using LogCtxShared;
 using Microsoft.Extensions.Configuration;
 using Serilog;
-using Serilog.Context;
-using System;
-using System.IO;
 
 namespace SeriLogShared
 {
@@ -14,9 +11,8 @@ namespace SeriLogShared
 
         public CtxLogger()
         {
-            // ✅ NEW: Initialize failsafe before trying to read configuration
             var baseDir = AppContext.BaseDirectory;
-            FailsafeLogger.Initialize(baseDir);
+            SeriLogFailsafeLogger.Initialize(baseDir);
 
             if (_configuration is not null)
             {

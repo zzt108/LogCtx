@@ -27,4 +27,8 @@
     <Using Include="NUnit.Framework" />
   </ItemGroup>
 
+  <Import Project="..\SeriLogShared\SeriLogShared.projitems" Label="Shared" />
+
+  <Import Project="..\LogCtxShared\LogCtxShared.projitems" Label="Shared" />
+
 </Project>
