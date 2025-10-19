@@ -1,4 +1,5 @@
-// NLogShared.Tests/CtxLoggerTests.cs
+// ✅ FULL FILE VERSION
+// File: NLogShared.Tests/CtxLoggerTests.cs
 // Project: NLogShared.Tests
 // Purpose: Comprehensive unit tests for NLogShared.CtxLogger covering configuration, logging levels, scope context integration, and MemoryTarget-based assertions
 
@@ -19,8 +20,8 @@ namespace NLogShared.Tests
     [Category("unit")]
     public class CtxLoggerTests
     {
-        private MemoryTarget _memoryTarget;
-        private string? _testConfigPath;
+        private MemoryTarget memoryTarget;
+        private string? testConfigPath;
 
         [SetUp]
         public void Setup()
@@ -28,16 +29,16 @@ namespace NLogShared.Tests
             // Reset NLog configuration before each test
             LogManager.Configuration = null;
 
-            // 🔄 MODIFY — Use ${scopeproperty} for scope context properties
             // Create in-memory MemoryTarget for deterministic log capture
-            _memoryTarget = new MemoryTarget("memory")
+            memoryTarget = new MemoryTarget("memory")
             {
-                Layout = "${level:uppercase=true}|${message}|${scopeproperty:CTX_STRACE}|${scopeproperty:P00}|${scopeproperty:P01}"
+                // 🔄 MODIFY: Add :format=@ for JSON serialization
+                Layout = "${level:uppercase=true}|${message}|${scopeproperty:CTX_STRACE}|${event-properties:P00:format=@}|${event-properties:P01:format=@}"
             };
 
             var config = new LoggingConfiguration();
-            config.AddTarget(_memoryTarget);
-            config.AddRuleForAllLevels(_memoryTarget);
+            config.AddTarget(memoryTarget);
+            config.AddRuleForAllLevels(memoryTarget);
             LogManager.Configuration = config;
         }
 
@@ -49,30 +50,37 @@ namespace NLogShared.Tests
             LogManager.Configuration = null;
 
             // Clean up test config files
-            if (!string.IsNullOrEmpty(_testConfigPath) && File.Exists(_testConfigPath))
+            if (!string.IsNullOrEmpty(testConfigPath) && File.Exists(testConfigPath))
             {
-                try { File.Delete(_testConfigPath); } catch { /* ignore cleanup failures */ }
+                try
+                {
+                    File.Delete(testConfigPath);
+                }
+                catch
+                {
+                    // ignore cleanup failures
+                }
             }
-            _memoryTarget.Dispose();
+
+            memoryTarget?.Dispose();
         }
 
-        // ────────────────────────────────────────────────────────────────
         // ConfigureXml Tests
-        // ────────────────────────────────────────────────────────────────
 
         [Test]
         public void ConfigureXml_WithValidPath_ReturnsTrue()
         {
             // Arrange
-            _testConfigPath = CreateTempNLogConfig();
+            testConfigPath = CreateTempNLogConfig();
             var logger = new CtxLogger();
 
             // Act
-            var result = logger.ConfigureXml(_testConfigPath);
+            var result = logger.ConfigureXml(testConfigPath);
 
             // Assert
             result.ShouldBeTrue();
             LogManager.Configuration.ShouldNotBeNull();
+
             logger.Dispose();
         }
 
@@ -87,22 +95,24 @@ namespace NLogShared.Tests
 
             // Assert
             result.ShouldBeFalse();
+
             logger.Dispose();
         }
 
         [Test]
-        public void ConfigureXml_CalledTwice_ReturnsTrue_AndDoesNotReconfigure()
+        public void ConfigureXml_CalledTwice_ReturnsTrueAndDoesNotReconfigure()
         {
             // Arrange
-            _testConfigPath = CreateTempNLogConfig();
+            testConfigPath = CreateTempNLogConfig();
             var logger = new CtxLogger();
-            logger.ConfigureXml(_testConfigPath);
+            logger.ConfigureXml(testConfigPath);
 
             // Act
-            var result = logger.ConfigureXml(_testConfigPath);
+            var result = logger.ConfigureXml(testConfigPath);
 
             // Assert
             result.ShouldBeTrue();
+
             logger.Dispose();
         }
 
@@ -114,70 +124,72 @@ namespace NLogShared.Tests
 
             // Act & Assert
             Should.Throw<NotImplementedException>(() => logger.ConfigureJson("any.json"));
+
             logger.Dispose();
         }
 
-        // ────────────────────────────────────────────────────────────────
         // Logging Level Tests with MemoryTarget
-        // ────────────────────────────────────────────────────────────────
 
         [Test]
-        public void Debug_Writes_To_MemoryTarget_With_Message()
+        public void Debug_WritesToMemoryTarget_WithMessage()
         {
             // Arrange
             var logger = new CtxLogger();
-            _memoryTarget.Logs.Clear();
+            memoryTarget.Logs.Clear();
 
             // Act
             logger.Debug("debug message");
             LogManager.Flush();
 
             // Assert
-            _memoryTarget.Logs.Count.ShouldBe(1);
-            _memoryTarget.Logs[0].ShouldContain("DEBUG|debug message");
+            memoryTarget.Logs.Count.ShouldBe(1);
+            memoryTarget.Logs[0].ShouldContain("DEBUG|debug message");
+
             logger.Dispose();
         }
 
         [Test]
-        public void Info_Writes_To_MemoryTarget_With_Message()
+        public void Info_WritesToMemoryTarget_WithMessage()
         {
             // Arrange
             var logger = new CtxLogger();
-            _memoryTarget.Logs.Clear();
+            memoryTarget.Logs.Clear();
 
             // Act
             logger.Info("info message");
             LogManager.Flush();
 
             // Assert
-            _memoryTarget.Logs.Count.ShouldBe(1);
-            _memoryTarget.Logs[0].ShouldContain("INFO|info message");
+            memoryTarget.Logs.Count.ShouldBe(1);
+            memoryTarget.Logs[0].ShouldContain("INFO|info message");
+
             logger.Dispose();
         }
 
         [Test]
-        public void Warn_Writes_To_MemoryTarget_With_Message()
+        public void Warn_WritesToMemoryTarget_WithMessage()
         {
             // Arrange
             var logger = new CtxLogger();
-            _memoryTarget.Logs.Clear();
+            memoryTarget.Logs.Clear();
 
             // Act
             logger.Warn("warning message");
             LogManager.Flush();
 
             // Assert
-            _memoryTarget.Logs.Count.ShouldBe(1);
-            _memoryTarget.Logs[0].ShouldContain("WARN|warning message");
+            memoryTarget.Logs.Count.ShouldBe(1);
+            memoryTarget.Logs[0].ShouldContain("WARN|warning message");
+
             logger.Dispose();
         }
 
         [Test]
-        public void Error_Writes_To_MemoryTarget_With_Exception_And_Message()
+        public void Error_WritesToMemoryTarget_WithExceptionAndMessage()
         {
             // Arrange
             var logger = new CtxLogger();
-            _memoryTarget.Logs.Clear();
+            memoryTarget.Logs.Clear();
             var exception = new InvalidOperationException("test error");
 
             // Act
@@ -185,17 +197,18 @@ namespace NLogShared.Tests
             LogManager.Flush();
 
             // Assert
-            _memoryTarget.Logs.Count.ShouldBe(1);
-            _memoryTarget.Logs[0].ShouldContain("ERROR|error message");
+            memoryTarget.Logs.Count.ShouldBe(1);
+            memoryTarget.Logs[0].ShouldContain("ERROR|error message");
+
             logger.Dispose();
         }
 
         [Test]
-        public void Fatal_Writes_To_MemoryTarget_With_Exception_And_Message()
+        public void Fatal_WritesToMemoryTarget_WithExceptionAndMessage()
         {
             // Arrange
             var logger = new CtxLogger();
-            _memoryTarget.Logs.Clear();
+            memoryTarget.Logs.Clear();
             var exception = new Exception("fatal error");
 
             // Act
@@ -203,38 +216,38 @@ namespace NLogShared.Tests
             LogManager.Flush();
 
             // Assert
-            _memoryTarget.Logs.Count.ShouldBe(1);
-            _memoryTarget.Logs[0].ShouldContain("FATAL|fatal message");
+            memoryTarget.Logs.Count.ShouldBe(1);
+            memoryTarget.Logs[0].ShouldContain("FATAL|fatal message");
+
             logger.Dispose();
         }
 
         [Test]
-        public void Trace_Writes_To_MemoryTarget_With_Message()
+        public void Trace_WritesToMemoryTarget_WithMessage()
         {
             // Arrange
             var logger = new CtxLogger();
-            _memoryTarget.Logs.Clear();
+            memoryTarget.Logs.Clear();
 
             // Act
             logger.Trace("trace message");
             LogManager.Flush();
 
             // Assert
-            _memoryTarget.Logs.Count.ShouldBe(1);
-            _memoryTarget.Logs[0].ShouldContain("TRACE|trace message");
+            memoryTarget.Logs.Count.ShouldBe(1);
+            memoryTarget.Logs[0].ShouldContain("TRACE|trace message");
+
             logger.Dispose();
         }
 
-        // ────────────────────────────────────────────────────────────────
         // Scope Context Integration Tests
-        // ────────────────────────────────────────────────────────────────
 
         [Test]
-        public void Debug_With_Ctx_Set_Writes_Scope_Properties_To_MemoryTarget()
+        public void DebugWithCtxSet_WritesScopePropertiesToMemoryTarget()
         {
             // Arrange
             var logger = new CtxLogger();
-            _memoryTarget.Logs.Clear();
+            memoryTarget.Logs.Clear();
 
             // Act
             logger.Ctx.Set(new Props("valueA", "valueB"));
@@ -242,22 +255,22 @@ namespace NLogShared.Tests
             LogManager.Flush();
 
             // Assert
-            _memoryTarget.Logs.Count.ShouldBe(1);
-            var logLine = _memoryTarget.Logs[0];
+            memoryTarget.Logs.Count.ShouldBe(1);
+            var logLine = memoryTarget.Logs[0];
             logLine.ShouldContain("DEBUG|debug with scope");
             logLine.ShouldContain("CtxLoggerTests"); // CTX_STRACE includes file name
-            // 🔄 MODIFY — Props serializes values to JSON strings, scope renders them
-            logLine.ShouldContain("\"valueA\""); // P00 = "valueA" (JSON string stored in scope)
-            logLine.ShouldContain("\"valueB\""); // P01 = "valueB" (JSON string stored in scope)
+            logLine.ShouldContain("\"valueA\""); // P00 rendered as JSON
+            logLine.ShouldContain("\"valueB\""); // P01 rendered as JSON
+
             logger.Dispose();
         }
 
         [Test]
-        public void Info_With_Ctx_Set_Includes_CTX_STRACE_In_Log()
+        public void InfoWithCtxSet_IncludesCTX_STRACE_InLog()
         {
             // Arrange
             var logger = new CtxLogger();
-            _memoryTarget.Logs.Clear();
+            memoryTarget.Logs.Clear();
 
             // Act
             logger.Ctx.Set(new Props("X"));
@@ -265,19 +278,20 @@ namespace NLogShared.Tests
             LogManager.Flush();
 
             // Assert
-            _memoryTarget.Logs.Count.ShouldBe(1);
-            var logLine = _memoryTarget.Logs[0];
+            memoryTarget.Logs.Count.ShouldBe(1);
+            var logLine = memoryTarget.Logs[0];
             logLine.ShouldContain("INFO|info with strace");
-            logLine.ShouldContain("::"); // CTX_STRACE format: FileName::MethodName::Line
+            logLine.ShouldContain("|"); // CTX_STRACE format: FileName.MethodName.Line
+
             logger.Dispose();
         }
 
         [Test]
-        public void Multiple_Logs_With_Ctx_Clear_Between_Calls_Isolates_Scope()
+        public void MultipleLogsWithCtxClearBetweenCalls_IsolatesScope()
         {
             // Arrange
             var logger = new CtxLogger();
-            _memoryTarget.Logs.Clear();
+            memoryTarget.Logs.Clear();
 
             // Act
             logger.Ctx.Set(new Props("first"));
@@ -287,24 +301,23 @@ namespace NLogShared.Tests
             LogManager.Flush();
 
             // Assert
-            _memoryTarget.Logs.Count.ShouldBe(2);
-            _memoryTarget.Logs[0].ShouldContain("\"first\"");
-            _memoryTarget.Logs[0].ShouldNotContain("\"second\"");
-            _memoryTarget.Logs[1].ShouldContain("\"second\"");
-            _memoryTarget.Logs[1].ShouldNotContain("\"first\"");
+            memoryTarget.Logs.Count.ShouldBe(2);
+            memoryTarget.Logs[0].ShouldContain("\"first\"");
+            memoryTarget.Logs[0].ShouldNotContain("\"second\"");
+            memoryTarget.Logs[1].ShouldContain("\"second\"");
+            memoryTarget.Logs[1].ShouldNotContain("\"first\"");
+
             logger.Dispose();
         }
 
-        // ────────────────────────────────────────────────────────────────
         // Dispose and Flush Tests
-        // ────────────────────────────────────────────────────────────────
 
         [Test]
-        public void Dispose_Flushes_Logs_And_Does_Not_Shutdown_LogManager()
+        public void Dispose_FlushesLogsAndDoesNotShutdownLogManager()
         {
             // Arrange
             var logger1 = new CtxLogger();
-            _memoryTarget.Logs.Clear();
+            memoryTarget.Logs.Clear();
 
             // Act
             logger1.Info("log from logger1");
@@ -315,14 +328,15 @@ namespace NLogShared.Tests
             LogManager.Flush();
 
             // Assert
-            _memoryTarget.Logs.Count.ShouldBe(2);
-            _memoryTarget.Logs[0].ShouldContain("log from logger1");
-            _memoryTarget.Logs[1].ShouldContain("log from logger2");
+            memoryTarget.Logs.Count.ShouldBe(2);
+            memoryTarget.Logs[0].ShouldContain("log from logger1");
+            memoryTarget.Logs[1].ShouldContain("log from logger2");
+
             logger2.Dispose();
         }
 
         [Test]
-        public void Dispose_Can_Be_Called_Multiple_Times_Safely()
+        public void Dispose_CanBeCalledMultipleTimesSafely()
         {
             // Arrange
             var logger = new CtxLogger();
@@ -335,12 +349,10 @@ namespace NLogShared.Tests
             });
         }
 
-        // ────────────────────────────────────────────────────────────────
         // Constructor and Initialization Tests
-        // ────────────────────────────────────────────────────────────────
 
         [Test]
-        public void Ctor_With_No_Args_Initializes_With_Failsafe()
+        public void Ctor_WithNoArgs_InitializesWithFailsafe()
         {
             // Act
             var logger = new CtxLogger();
@@ -348,11 +360,12 @@ namespace NLogShared.Tests
             // Assert
             logger.ShouldNotBeNull();
             logger.Ctx.ShouldNotBeNull();
+
             logger.Dispose();
         }
 
         [Test]
-        public void Ctor_With_Custom_ScopeContext_Uses_Provided_Context()
+        public void Ctor_WithCustomScopeContext_UsesProvidedContext()
         {
             // Arrange
             var customScope = new NLogScopeContext();
@@ -362,42 +375,42 @@ namespace NLogShared.Tests
 
             // Assert
             logger.Ctx.ShouldNotBeNull();
+
             logger.Dispose();
         }
 
         [Test]
-        public void Ctor_With_ConfigPath_Loads_Configuration()
+        public void Ctor_WithConfigPath_LoadsConfiguration()
         {
             // Arrange
-            _testConfigPath = CreateTempNLogConfig();
+            testConfigPath = CreateTempNLogConfig();
 
             // Act
-            var logger = new CtxLogger(_testConfigPath);
+            var logger = new CtxLogger(testConfigPath);
 
             // Assert
             LogManager.Configuration.ShouldNotBeNull();
+
             logger.Dispose();
         }
 
-        // ────────────────────────────────────────────────────────────────
         // Helper Methods
-        // ────────────────────────────────────────────────────────────────
 
         private string CreateTempNLogConfig()
         {
             var tempPath = Path.Combine(Path.GetTempPath(), $"NLog_{Guid.NewGuid()}.config");
-            // 🔄 MODIFY — Use ${scopeproperty} for scope context rendering
             var configXml = @"<?xml version=""1.0"" encoding=""utf-8"" ?>
 <nlog xmlns=""http://www.nlog-project.org/schemas/NLog.xsd""
       xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance"">
   <targets>
     <target xsi:type=""Memory"" name=""mem"" 
-            layout=""${level:uppercase=true}|${message}|${scopeproperty:CTX_STRACE}|${scopeproperty:P00}"" />
+            layout=""${level:uppercase=true}|${message}|${scopeproperty:CTX_STRACE}|${event-properties:P00:format=@}|${event-properties:P01:format=@}"" />
   </targets>
   <rules>
     <logger name=""*"" minlevel=""Trace"" writeTo=""mem"" />
   </rules>
 </nlog>";
+
             File.WriteAllText(tempPath, configXml);
             return tempPath;
         }

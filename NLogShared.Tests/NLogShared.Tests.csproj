@@ -10,12 +10,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="6.0.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="NLog" Version="5.3.4" />
-    <PackageReference Include="NUnit" Version="3.14.0" />
-    <PackageReference Include="NUnit.Analyzers" Version="3.9.0" />
-    <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.0" />
+    <PackageReference Include="NLog" Version="6.0.5" />
+    <PackageReference Include="NUnit" Version="4.4.0" />
+    <PackageReference Include="NUnit.Analyzers" Version="4.10.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="NUnit3TestAdapter" Version="5.2.0" />
     <PackageReference Include="Shouldly" Version="4.3.0" />
   </ItemGroup>
 
@@ -26,5 +32,10 @@
   <Import Project="..\LogCtxShared\LogCtxShared.projitems" Label="Shared" />
 
   <Import Project="..\NLogShared\NLogShared.projitems" Label="Shared" />
+
+  <ItemGroup>
+    <PackageReference Update="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Update="NLog.Targets.Seq" Version="4.0.2" />
+  </ItemGroup>
 
 </Project>
