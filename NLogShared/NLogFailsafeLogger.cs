@@ -42,13 +42,13 @@ namespace NLogShared
 
                 // 4) Last resort: build a minimal in-memory NLog config (console + rolling file).
                 ApplyMinimalFallback(baseDir);
-                return true;
+                return false;
             }
             catch
             {
                 // Absolutely never throw; if even fallback fails, force a no-op logger.
                 ApplyNoOpFallback();
-                return true;
+                return false;
             }
         }
 

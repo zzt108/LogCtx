@@ -11,7 +11,6 @@ namespace NLogShared
         private static bool _isConfigured = false;
 
         private readonly Logger? Logger;
-        private readonly LogCtxShared.LogCtx? _ctx;
 
         public LogCtxShared.LogCtx Ctx { get; }
 
