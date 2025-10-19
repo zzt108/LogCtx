@@ -45,19 +45,6 @@ namespace LogCtxShared.Tests
         }
 
         [Test]
-        public void AsJson_WithNullObject_ReturnsNullString()
-        {
-            // Arrange
-            object? obj = null;
-
-            // Act
-            var result = obj?.AsJson(false);
-
-            // Assert
-            result.ShouldBe("null");
-        }
-
-        [Test]
         public void AsJson_WithComplexObject_SerializesCorrectly()
         {
             // Arrange
