@@ -12,6 +12,13 @@ namespace NLogShared
         {
             try
             {
+                // Preserve test configurations - if LogManager already has targets, skip initialization
+                if (LogManager.Configuration != null && LogManager.Configuration.AllTargets.Any())
+                {
+                    // Tests or previous setup already configured NLog - respect that
+                    return true;
+                }
+
                 // 1) Stable base directory across VS, VS Code, and direct EXE launch.
                 var baseDir = AppContext.BaseDirectory;
                 var xmlPath = Path.Combine(baseDir, preferredFileName ?? "NLog.config");
