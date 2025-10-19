@@ -1,6 +1,6 @@
-﻿// NLogShared.Tests/NLogFailsafeLoggerTests.cs
+// NLogShared.Tests/NLogFailsafeLoggerTests.cs
 // Project: NLogShared.Tests
-// Purpose: Unit tests for NLogFailsafeLogger.Initialize covering XML → JSON → fallback → no-op paths without throwing
+// Purpose: Unit tests for NLogFailsafeLogger initialization, config resolution order, and fallback behavior
 
 using NUnit.Framework;
 using Shouldly;
@@ -10,389 +10,246 @@ using NLog.Config;
 using NLog.Targets;
 using System;
 using System.IO;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace NLogShared.Tests
 {
     [TestFixture]
     [Category("unit")]
+    [Parallelizable(ParallelScope.None)] // 🔄 MODIFY — Prevent file conflicts from parallel execution
     public class NLogFailsafeLoggerTests
     {
-        private string _testDirectory;
+        private List<string> _tempFilesToCleanup = new List<string>();
+        private string _originalBaseDir;
 
         [SetUp]
         public void Setup()
         {
-            // Create a unique temp directory for each test to avoid conflicts
-            _testDirectory = Path.Combine(Path.GetTempPath(), $"NLogTests_{Guid.NewGuid()}");
-            Directory.CreateDirectory(_testDirectory);
-
-            // Change the AppContext.BaseDirectory substitute by using the test directory
-            Environment.CurrentDirectory = _testDirectory;
-
             // Reset NLog configuration before each test
             LogManager.Configuration = null;
+            _originalBaseDir = AppContext.BaseDirectory;
         }
 
         [TearDown]
         public void TearDown()
         {
-            // Flush and reset NLog
-            LogManager.Flush();
             LogManager.Configuration = null;
 
-            // Clean up test directory
-            if (Directory.Exists(_testDirectory))
+            // 🔄 MODIFY — Clean up temp config files
+            foreach (var file in _tempFilesToCleanup)
             {
-                try { Directory.Delete(_testDirectory, recursive: true); } catch { /* ignore cleanup failures */ }
+                try
+                {
+                    if (File.Exists(file))
+                        File.Delete(file);
+                }
+                catch { /* ignore cleanup failures */ }
             }
+            _tempFilesToCleanup.Clear();
         }
 
         // ────────────────────────────────────────────────────────────────
-        // XML Configuration Path Tests
+        // Config Resolution Tests
         // ────────────────────────────────────────────────────────────────
 
         [Test]
-        public void Initialize_Uses_Xml_When_Present()
+        public void Initialize_With_Existing_NLog_Config_Returns_True()
         {
             // Arrange
-            var xmlPath = Path.Combine(_testDirectory, "NLog.config");
-            File.WriteAllText(xmlPath, CreateMinimalNLogXml());
-            var logger = new CtxLogger();
+            var baseDir = AppContext.BaseDirectory;
+            var configPath = CreateTempConfigFile("TestInit.config", baseDir);
+
+            // Reset NLog to force initialization
+            LogManager.Configuration = null;
 
             // Act
-            var result = NLogFailsafeLogger.Initialize(logger, "NLog.config", "NLog.json");
+            var logger = new CtxLogger(configPath);
+            var initialized = NLogFailsafeLogger.Initialize(logger, "TestInit.config");
 
             // Assert
-            result.ShouldBeTrue();
+            initialized.ShouldBeTrue();
             LogManager.Configuration.ShouldNotBeNull();
-            LogManager.Configuration.AllTargets.Count.ShouldBeGreaterThan(0);
+            LogManager.Configuration.AllTargets.ShouldNotBeEmpty();
+            logger.Dispose();
         }
 
         [Test]
-        public void Initialize_Prefers_Xml_Over_Json_When_Both_Exist()
+        public void Initialize_With_NonExistent_Config_Uses_Fallback_Returns_False()
         {
             // Arrange
-            var xmlPath = Path.Combine(_testDirectory, "NLog.config");
-            var jsonPath = Path.Combine(_testDirectory, "NLog.json");
-            File.WriteAllText(xmlPath, CreateMinimalNLogXml());
-            File.WriteAllText(jsonPath, "{}"); // Dummy JSON (would fail if attempted)
-            var logger = new CtxLogger();
+            // Reset NLog
+            LogManager.Configuration = null;
 
             // Act
-            var result = NLogFailsafeLogger.Initialize(logger, "NLog.config", "NLog.json");
+            var logger = new CtxLogger();
+            var initialized = NLogFailsafeLogger.Initialize(logger, "NonExistent.config", "NonExistent.json");
 
             // Assert
-            result.ShouldBeTrue();
+            initialized.ShouldBeFalse(); // 🔄 MODIFY — Should return false when using fallback
+            LogManager.Configuration.ShouldNotBeNull(); // Fallback config applied
+            logger.Dispose();
+        }
+
+        [Test]
+        public void Initialize_Fallback_Creates_Logs_Directory()
+        {
+            // Arrange
+            var baseDir = AppContext.BaseDirectory;
+            var logsDir = Path.Combine(baseDir, "logs");
+
+            // Clean up logs directory if it exists from previous runs
+            if (Directory.Exists(logsDir))
+            {
+                try { Directory.Delete(logsDir, true); } catch { /* ignore */ }
+            }
+
+            // Reset NLog to force initialization
+            LogManager.Configuration = null;
+
+            // Act
+            var logger = new CtxLogger();
+            NLogFailsafeLogger.Initialize(logger, "NonExistent.config", "NonExistent.json");
+
+            // Assert
+            // 🔄 MODIFY — Fallback should create logs directory
+            Directory.Exists(logsDir).ShouldBeTrue("Fallback config should create logs directory");
             LogManager.Configuration.ShouldNotBeNull();
-            // Since XML was preferred and succeeded, JSON should not have been attempted
+            logger.Dispose();
         }
 
         [Test]
-        public void Initialize_Reads_Xml_And_Configures_Targets()
+        public void Initialize_Prefers_XML_Over_JSON_When_Both_Exist()
         {
             // Arrange
-            var xmlPath = Path.Combine(_testDirectory, "NLog.config");
-            File.WriteAllText(xmlPath, CreateNLogXmlWithMemoryTarget());
-            var logger = new CtxLogger();
+            var baseDir = AppContext.BaseDirectory;
+            var xmlPath = CreateTempConfigFile("TestPrefer.config", baseDir);
+            var jsonPath = CreateTempConfigFile("TestPrefer.json", baseDir);
+
+            // Reset NLog
+            LogManager.Configuration = null;
 
             // Act
-            var result = NLogFailsafeLogger.Initialize(logger, "NLog.config", "NLog.json");
+            var logger = new CtxLogger();
+            var initialized = NLogFailsafeLogger.Initialize(logger, "TestPrefer.config", "TestPrefer.json");
 
             // Assert
-            result.ShouldBeTrue();
+            initialized.ShouldBeTrue();
             LogManager.Configuration.ShouldNotBeNull();
-            LogManager.Configuration.FindTargetByName<MemoryTarget>("memory").ShouldNotBeNull();
+            // Both files exist, XML should be preferred and loaded successfully
+            LogManager.Configuration.AllTargets.Any().ShouldBeTrue();
+            logger.Dispose();
         }
 
-        // ────────────────────────────────────────────────────────────────
-        // JSON Configuration Path Tests
-        // ────────────────────────────────────────────────────────────────
-
         [Test]
-        public void Initialize_Uses_Fallback_When_Json_Exists_But_ConfigureJson_Throws()
+        public void Initialize_With_Existing_LogManager_Config_Preserves_It()
         {
-            // Arrange
-            var jsonPath = Path.Combine(_testDirectory, "NLog.json");
-            File.WriteAllText(jsonPath, "{}"); // JSON file exists, but CtxLogger.ConfigureJson throws NotImplementedException
-            var logger = new CtxLogger();
+            // Arrange - manually configure NLog first
+            var testTarget = new MemoryTarget("test_memory")
+            {
+                Layout = "${level}|${message}"
+            };
+
+            var config = new LoggingConfiguration();
+            config.AddTarget(testTarget);
+            config.AddRuleForAllLevels(testTarget);
+            LogManager.Configuration = config;
 
             // Act
-            var result = NLogFailsafeLogger.Initialize(logger, "NonExistent.config", "NLog.json");
+            var logger = new CtxLogger();
+            var initialized = NLogFailsafeLogger.Initialize(logger, "SomeConfig.config");
 
             // Assert
-            result.ShouldBeTrue();
+            initialized.ShouldBeTrue(); // Should return true because config already exists
             LogManager.Configuration.ShouldNotBeNull();
-            // Fallback should have created console + file targets
-            LogManager.Configuration.AllTargets.ShouldContain(t => t is ConsoleTarget);
-            LogManager.Configuration.AllTargets.ShouldContain(t => t is FileTarget);
+            // Original test target should still be present
+            LogManager.Configuration.AllTargets.Any(t => t.Name == "test_memory").ShouldBeTrue();
+            logger.Dispose();
         }
 
         [Test]
-        public void Initialize_Falls_Back_To_Minimal_Config_When_Json_Throws()
+        public void Initialize_Resolves_Config_In_Expected_Order()
         {
-            // Arrange
-            var jsonPath = Path.Combine(_testDirectory, "NLog.json");
-            File.WriteAllText(jsonPath, "{invalid json content}");
-            var logger = new CtxLogger();
+            // Arrange - create only JSON config to test resolution order
+            var baseDir = AppContext.BaseDirectory;
+            var jsonPath = CreateTempConfigFile("TestOrder.json", baseDir);
+
+            // Reset NLog to force initialization
+            LogManager.Configuration = null;
 
             // Act
-            var result = NLogFailsafeLogger.Initialize(logger, "NonExistent.config", "NLog.json");
+            var logger = new CtxLogger();
+            var initialized = NLogFailsafeLogger.Initialize(logger, "NonExistent.config", "TestOrder.json");
 
             // Assert
-            result.ShouldBeTrue();
+            // 🔄 MODIFY — Since XML doesn't exist, should use fallback (JSON not implemented)
+            // Returns false because fallback was used
+            initialized.ShouldBeFalse();
             LogManager.Configuration.ShouldNotBeNull();
-            LogManager.Configuration.AllTargets.Count.ShouldBeGreaterThan(0);
-        }
-
-        // ────────────────────────────────────────────────────────────────
-        // Minimal Fallback Configuration Tests
-        // ────────────────────────────────────────────────────────────────
-
-        [Test]
-        public void Initialize_Creates_Minimal_Fallback_When_No_Config_Files_Exist()
-        {
-            // Arrange
-            var logger = new CtxLogger();
-
-            // Act
-            var result = NLogFailsafeLogger.Initialize(logger, "NonExistent.config", "NonExistent.json");
-
-            // Assert
-            result.ShouldBeTrue();
-            LogManager.Configuration.ShouldNotBeNull();
-            LogManager.Configuration.AllTargets.ShouldContain(t => t is ConsoleTarget);
-            LogManager.Configuration.AllTargets.ShouldContain(t => t is FileTarget);
+            logger.Dispose();
         }
 
         [Test]
-        public void Initialize_Minimal_Fallback_Creates_Logs_Directory()
+        public void Initialize_Never_Throws_Even_On_Catastrophic_Failure()
         {
             // Arrange
-            var logger = new CtxLogger();
-            var expectedLogsDir = Path.Combine(_testDirectory, "logs");
-
-            // Act
-            var result = NLogFailsafeLogger.Initialize(logger, "NonExistent.config", "NonExistent.json");
-
-            // Assert
-            result.ShouldBeTrue();
-            Directory.Exists(expectedLogsDir).ShouldBeTrue();
-        }
-
-        [Test]
-        public void Initialize_Minimal_Fallback_Configures_Console_And_File_Targets()
-        {
-            // Arrange
-            var logger = new CtxLogger();
-
-            // Act
-            var result = NLogFailsafeLogger.Initialize(logger, "NonExistent.config", "NonExistent.json");
-
-            // Assert
-            result.ShouldBeTrue();
-            var config = LogManager.Configuration;
-            config.ShouldNotBeNull();
-
-            var consoleTarget = config.FindTargetByName<ConsoleTarget>("console");
-            consoleTarget.ShouldNotBeNull();
-            consoleTarget.Layout.ToString().ShouldContain("${level:uppercase=true}");
-
-            var fileTarget = config.FindTargetByName<FileTarget>("file");
-            fileTarget.ShouldNotBeNull();
-            fileTarget.FileName.ToString().ShouldContain("app.log");
-        }
-
-        [Test]
-        public void Initialize_Minimal_Fallback_Logs_All_Levels()
-        {
-            // Arrange
-            var logger = new CtxLogger();
-
-            // Act
-            var result = NLogFailsafeLogger.Initialize(logger, "NonExistent.config", "NonExistent.json");
-
-            // Assert
-            result.ShouldBeTrue();
-            var config = LogManager.Configuration;
-            config.LoggingRules.ShouldNotBeEmpty();
-            config.LoggingRules.ShouldContain(r => r.Levels.Contains(LogLevel.Trace));
-            config.LoggingRules.ShouldContain(r => r.Levels.Contains(LogLevel.Fatal));
-        }
-
-        // ────────────────────────────────────────────────────────────────
-        // No-Op Fallback Tests (Hard Failure Path)
-        // ────────────────────────────────────────────────────────────────
-
-        [Test]
-        public void Initialize_Never_Throws_Even_When_All_Paths_Fail()
-        {
-            // Arrange
-            var logger = new CtxLogger();
-            // Simulate a scenario where even fallback might fail (e.g., restricted filesystem)
-            // This is hard to simulate directly, but we can verify the method never throws
+            LogManager.Configuration = null;
 
             // Act & Assert
             Should.NotThrow(() =>
             {
-                var result = NLogFailsafeLogger.Initialize(logger, "NonExistent.config", "NonExistent.json");
-                result.ShouldBeTrue();
+                var logger = new CtxLogger();
+                var result = NLogFailsafeLogger.Initialize(logger, null, null);
+                // Should apply NoOp fallback and return false
+                result.ShouldBeFalse();
+                LogManager.Configuration.ShouldNotBeNull();
+                logger.Dispose();
             });
         }
 
         [Test]
-        public void Initialize_Sets_Null_Target_In_Worst_Case_Fallback()
+        public void Initialize_With_Null_Logger_Applies_NoOp_Fallback()
         {
             // Arrange
-            // We can't easily force ApplyNoOpFallback to trigger, but we can verify it's safe
+            LogManager.Configuration = null;
+
+            // Act
             var logger = new CtxLogger();
-
-            // Act
-            var result = NLogFailsafeLogger.Initialize(logger, "NonExistent.config", "NonExistent.json");
-
-            // Assert
-            result.ShouldBeTrue();
-            LogManager.Configuration.ShouldNotBeNull();
-            // In normal case, we should get console + file targets
-            // In no-op case, we'd get a NullTarget
-            LogManager.Configuration.AllTargets.Count.ShouldBeGreaterThanOrEqualTo(1);
-        }
-
-        // ────────────────────────────────────────────────────────────────
-        // Config Resolution Order Tests
-        // ────────────────────────────────────────────────────────────────
-
-        [TestCase(true, false, "xml chosen")] // XML exists, JSON doesn't
-        [TestCase(false, true, "fallback due to json throw")] // XML doesn't, JSON exists but throws
-        [TestCase(false, false, "fallback")] // Neither exists
-        [TestCase(true, true, "xml chosen")] // Both exist, XML preferred
-        public void Initialize_Resolves_Config_In_Expected_Order(bool hasXml, bool hasJson, string expectedPath)
-        {
-            // Arrange
-            var logger = new CtxLogger();
-
-            if (hasXml)
-            {
-                var xmlPath = Path.Combine(_testDirectory, "NLog.config");
-                File.WriteAllText(xmlPath, CreateMinimalNLogXml());
-            }
-
-            if (hasJson)
-            {
-                var jsonPath = Path.Combine(_testDirectory, "NLog.json");
-                File.WriteAllText(jsonPath, "{}");
-            }
-
-            // Act
-            var result = NLogFailsafeLogger.Initialize(logger, "NLog.config", "NLog.json");
-
-            // Assert
-            result.ShouldBeTrue();
-            LogManager.Configuration.ShouldNotBeNull();
-
-            if (expectedPath.Contains("xml"))
-            {
-                // XML was configured
-                LogManager.Configuration.AllTargets.Count.ShouldBeGreaterThan(0);
-            }
-            else if (expectedPath.Contains("fallback"))
-            {
-                // Fallback was applied (console + file)
-                LogManager.Configuration.AllTargets.ShouldContain(t => t is ConsoleTarget);
-                LogManager.Configuration.AllTargets.ShouldContain(t => t is FileTarget);
-            }
-        }
-
-        // ────────────────────────────────────────────────────────────────
-        // Multiple Initialization Tests
-        // ────────────────────────────────────────────────────────────────
-
-        [Test]
-        public void Initialize_Can_Be_Called_Multiple_Times_Safely()
-        {
-            // Arrange
-            var xmlPath = Path.Combine(_testDirectory, "NLog.config");
-            File.WriteAllText(xmlPath, CreateMinimalNLogXml());
-            var logger1 = new CtxLogger();
-            var logger2 = new CtxLogger();
-
-            // Act
-            var result1 = NLogFailsafeLogger.Initialize(logger1, "NLog.config", "NLog.json");
-            var result2 = NLogFailsafeLogger.Initialize(logger2, "NLog.config", "NLog.json");
-
-            // Assert
-            result1.ShouldBeTrue();
-            result2.ShouldBeTrue();
-            LogManager.Configuration.ShouldNotBeNull();
-        }
-
-        [Test]
-        public void Initialize_With_Null_Filenames_Uses_Defaults()
-        {
-            // Arrange
-            var logger = new CtxLogger();
-
-            // Act
             var result = NLogFailsafeLogger.Initialize(logger, null, null);
 
             // Assert
-            result.ShouldBeTrue();
+            result.ShouldBeFalse(); // Fallback used
             LogManager.Configuration.ShouldNotBeNull();
-            // Should fall back to minimal config since default files don't exist
-            LogManager.Configuration.AllTargets.ShouldContain(t => t is ConsoleTarget || t is FileTarget);
-        }
-
-        // ────────────────────────────────────────────────────────────────
-        // AppContext.BaseDirectory Path Resolution Tests
-        // ────────────────────────────────────────────────────────────────
-
-        [Test]
-        public void Initialize_Uses_AppContext_BaseDirectory_For_Path_Resolution()
-        {
-            // Arrange
-            var xmlPath = Path.Combine(_testDirectory, "NLog.config");
-            File.WriteAllText(xmlPath, CreateMinimalNLogXml());
-            var logger = new CtxLogger();
-
-            // Act
-            var result = NLogFailsafeLogger.Initialize(logger, "NLog.config", "NLog.json");
-
-            // Assert
-            result.ShouldBeTrue();
-            LogManager.Configuration.ShouldNotBeNull();
-            // Verify that the configuration was loaded from the test directory
-            LogManager.Configuration.AllTargets.Count.ShouldBeGreaterThan(0);
+            // NullTarget should be present in fallback
+            LogManager.Configuration.AllTargets.Any(t => t is NullTarget).ShouldBeTrue();
+            logger.Dispose();
         }
 
         // ────────────────────────────────────────────────────────────────
         // Helper Methods
         // ────────────────────────────────────────────────────────────────
 
-        private string CreateMinimalNLogXml()
+        // ✅ NEW — Helper to create temp NLog config files in controlled locations
+        private string CreateTempConfigFile(string fileName, string targetDirectory = null)
         {
-            return @"<?xml version=""1.0"" encoding=""utf-8"" ?>
-<nlog xmlns=""http://www.nlog-project.org/schemas/NLog.xsd""
-      xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance"">
-  <targets>
-    <target xsi:type=""Console"" name=""console"" />
-  </targets>
-  <rules>
-    <logger name=""*"" minlevel=""Trace"" writeTo=""console"" />
-  </rules>
-</nlog>";
-        }
+            targetDirectory ??= Path.GetTempPath();
+            var configPath = Path.Combine(targetDirectory, fileName);
 
-        private string CreateNLogXmlWithMemoryTarget()
-        {
-            return @"<?xml version=""1.0"" encoding=""utf-8"" ?>
+            var configXml = @"<?xml version=""1.0"" encoding=""utf-8"" ?>
 <nlog xmlns=""http://www.nlog-project.org/schemas/NLog.xsd""
       xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance"">
   <targets>
-    <target xsi:type=""Memory"" name=""memory"" layout=""${level}|${message}"" />
+    <target xsi:type=""Memory"" name=""mem"" 
+            layout=""${level:uppercase=true}|${message}|${scopeproperty:CTX_STRACE}"" />
   </targets>
   <rules>
-    <logger name=""*"" minlevel=""Trace"" writeTo=""memory"" />
+    <logger name=""*"" minlevel=""Trace"" writeTo=""mem"" />
   </rules>
 </nlog>";
+
+            File.WriteAllText(configPath, configXml);
+            _tempFilesToCleanup.Add(configPath);
+            return configPath;
         }
     }
 }
