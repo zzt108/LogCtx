@@ -1,4 +1,8 @@
-﻿using NUnit.Framework;
+// LogCtxShared.Tests/LogCtxTests.cs
+// Project: LogCtxShared.Tests
+// Purpose: Unit tests for LogCtx context management, CTXSTRACE generation, and scope property pushing
+
+using NUnit.Framework;
 using Shouldly;
 using LogCtxShared;
 using NLogShared;
@@ -13,7 +17,7 @@ namespace LogCtxShared.Tests
     public class LogCtxTests
     {
         const string STR_CTX_STRACE = "CTX_STRACE";
-        private CtxLogger Log = new( );
+        private CtxLogger Log = new();
 
         [TearDown]
         public void TearDown()
@@ -36,6 +40,7 @@ namespace LogCtxShared.Tests
             // Assert
             scope.Cleared.ShouldBeTrue();
             scope.Pushed.ShouldContain(kv => kv.Key == STR_CTX_STRACE && kv.Value is string && !string.IsNullOrWhiteSpace((string)kv.Value));
+            // 🔄 MODIFY — FakeScopeContext now stores raw values, expect JSON strings from Props
             scope.Pushed.ShouldContain(kv => kv.Key == "P00" && kv.Value != null && kv.Value.ToString() == "A".AsJson(true));
             scope.Pushed.ShouldContain(kv => kv.Key == "P01" && kv.Value != null && kv.Value.ToString() == "B".AsJson(true));
             enriched.ShouldNotBeNull();
@@ -77,7 +82,6 @@ namespace LogCtxShared.Tests
             s.ShouldNotBeNullOrWhiteSpace();
             // Expect pattern like "FileName.MethodName123"
             s.ShouldContain("LogCtxTests::SetCtxStraceFormatBeginsWithFileMethodLineAndFiltersTestNoise::");
-            // Regex.IsMatch(s, @"\w*\LogCtxTests::SetCtxStraceFormatBeginsWithFileMethodLineAndFiltersTestNoise::\d+").ShouldBeTrue($"Unexpected CTXSTRACE header: {s}");
             // Heuristic filter checks: avoid common framework noise lines when possible
             s.IndexOf(" at NUnit.", StringComparison.OrdinalIgnoreCase).ShouldBe(-1);
         }
@@ -109,8 +113,9 @@ namespace LogCtxShared.Tests
             var enriched = Log.Ctx.Set(props);
 
             // Assert
-            scope.Pushed.ShouldContain(kv => kv.Key == "P00" && kv.Value != null && kv.Value.ToString() == 123.ToString());
-            scope.Pushed.ShouldContain(kv => kv.Key == "P01" && kv.Value != null && kv.Value.ToString() == true.ToString());
+            // 🔄 MODIFY — FakeScopeContext stores raw objects, expect actual values
+            scope.Pushed.ShouldContain(kv => kv.Key == "P00" && kv.Value != null && kv.Value.ToString() == "123");
+            scope.Pushed.ShouldContain(kv => kv.Key == "P01" && kv.Value != null && kv.Value.ToString() == "True"); // C# bool.ToString() = "True"
             scope.Pushed.ShouldContain(kv => kv.Key == "Custom" && kv.Value != null && kv.Value.ToString() == "Z");
             enriched["P00"].ShouldBe(123);
             enriched["P01"].ShouldBe(true);
@@ -146,8 +151,8 @@ namespace LogCtxShared.Tests
 
             public void PushProperty(string key, object value)
             {
-                // Simulate behavior that scope stores string representations
-                Pushed.Add(new KeyValuePair<string, object>(key, value?.ToString()));
+                // 🔄 MODIFY — Store raw value to match NLog.ScopeContext behavior
+                Pushed.Add(new KeyValuePair<string, object>(key, value));
             }
         }
     }

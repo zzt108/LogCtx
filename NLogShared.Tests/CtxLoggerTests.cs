@@ -1,4 +1,4 @@
-﻿// NLogShared.Tests/CtxLoggerTests.cs
+// NLogShared.Tests/CtxLoggerTests.cs
 // Project: NLogShared.Tests
 // Purpose: Comprehensive unit tests for NLogShared.CtxLogger covering configuration, logging levels, scope context integration, and MemoryTarget-based assertions
 
@@ -28,10 +28,11 @@ namespace NLogShared.Tests
             // Reset NLog configuration before each test
             LogManager.Configuration = null;
 
+            // 🔄 MODIFY — Use ${scopeproperty} for scope context properties
             // Create in-memory MemoryTarget for deterministic log capture
             _memoryTarget = new MemoryTarget("memory")
             {
-                Layout = "${level:uppercase=true}|${message}|${scopeproperty:CTX_STRACE}|${event-properties:P00}|${event-properties:P01}"
+                Layout = "${level:uppercase=true}|${message}|${scopeproperty:CTX_STRACE}|${scopeproperty:P00}|${scopeproperty:P01}"
             };
 
             var config = new LoggingConfiguration();
@@ -245,8 +246,9 @@ namespace NLogShared.Tests
             var logLine = _memoryTarget.Logs[0];
             logLine.ShouldContain("DEBUG|debug with scope");
             logLine.ShouldContain("CtxLoggerTests"); // CTX_STRACE includes file name
-            logLine.ShouldContain("\"valueA\""); // P00 rendered as JSON
-            logLine.ShouldContain("\"valueB\""); // P01 rendered as JSON
+            // 🔄 MODIFY — Props serializes values to JSON strings, scope renders them
+            logLine.ShouldContain("\"valueA\""); // P00 = "valueA" (JSON string stored in scope)
+            logLine.ShouldContain("\"valueB\""); // P01 = "valueB" (JSON string stored in scope)
             logger.Dispose();
         }
 
@@ -384,12 +386,13 @@ namespace NLogShared.Tests
         private string CreateTempNLogConfig()
         {
             var tempPath = Path.Combine(Path.GetTempPath(), $"NLog_{Guid.NewGuid()}.config");
+            // 🔄 MODIFY — Use ${scopeproperty} for scope context rendering
             var configXml = @"<?xml version=""1.0"" encoding=""utf-8"" ?>
 <nlog xmlns=""http://www.nlog-project.org/schemas/NLog.xsd""
       xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance"">
   <targets>
     <target xsi:type=""Memory"" name=""mem"" 
-            layout=""${level:uppercase=true}|${message}|${scopeproperty:CTX_STRACE}|${event-properties:P00}"" />
+            layout=""${level:uppercase=true}|${message}|${scopeproperty:CTX_STRACE}|${scopeproperty:P00}"" />
   </targets>
   <rules>
     <logger name=""*"" minlevel=""Trace"" writeTo=""mem"" />
