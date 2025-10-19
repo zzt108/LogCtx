@@ -178,7 +178,7 @@ namespace NLogShared.Tests
             // Arrange
             var xmlPath = Path.Combine(_testDirectory, "NLog.config");
             File.WriteAllText(xmlPath, CreateNLogXmlWithMultipleTargets());
-            var logger = new CtxLogger();
+            var logger = new CtxLogger(xmlPath);
 
             // Act
             logger.ConfigureXml(xmlPath);
