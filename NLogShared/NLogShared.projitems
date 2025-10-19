@@ -14,7 +14,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)CtxLogger.cs" />
-    <Compile Include="..\NLogShared\NLogFailsafeLogger.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)NLogFailsafeLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)NLogScopeContext.cs" />
   </ItemGroup>
 </Project>
