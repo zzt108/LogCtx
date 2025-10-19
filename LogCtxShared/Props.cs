@@ -34,9 +34,9 @@ public class Props : Dictionary<string, object>, IDisposable
         }
     }
 
-    public Props AddJson(string key, object value)
+    public Props AddJson(string key, object value, Formatting formatting = Formatting.None)
     {
-        Add(key, JsonConvert.SerializeObject(value));
+        Add(key, JsonConvert.SerializeObject(value, formatting));
         return this;
     }
 

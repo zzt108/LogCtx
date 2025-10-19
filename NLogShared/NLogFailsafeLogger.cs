@@ -1,7 +1,4 @@
-// File: LogCtx/NLogShared/FailsafeLogger.cs
-using System;
-using System.IO;
-using NLog;
+﻿using NLog;
 using NLog.Config;
 using NLog.Targets;
 
@@ -9,19 +6,25 @@ namespace NLogShared
 {
     // Intent: a single, robust entry point that never throws on logger startup.
     // It uses AppContext.BaseDirectory for stable pathing and falls back to a minimal in-memory config.
-    public static class FailsafeLogger
+    internal static class NLogFailsafeLogger
     {
-        public static bool Initialize(string? preferredFileName = "NLog.config", string? altJsonFileName = "NLog.json")
+        public static bool Initialize(CtxLogger ctx, string? preferredFileName = "NLog.config", string? altJsonFileName = "NLog.json")
         {
             try
             {
+                // Preserve test configurations - if LogManager already has targets, skip initialization
+                if (LogManager.Configuration != null && LogManager.Configuration.AllTargets.Any())
+                {
+                    // Tests or previous setup already configured NLog - respect that
+                    return true;
+                }
+
                 // 1) Stable base directory across VS, VS Code, and direct EXE launch.
                 var baseDir = AppContext.BaseDirectory;
                 var xmlPath = Path.Combine(baseDir, preferredFileName ?? "NLog.config");
                 var jsonPath = Path.Combine(baseDir, altJsonFileName ?? "NLog.json");
 
                 // 2) Try XML via existing LogCtx CtxLogger first.
-                var ctx = new CtxLogger();
                 if (File.Exists(xmlPath))
                 {
                     var ok = ctx.ConfigureXml(xmlPath);
@@ -39,13 +42,13 @@ namespace NLogShared
 
                 // 4) Last resort: build a minimal in-memory NLog config (console + rolling file).
                 ApplyMinimalFallback(baseDir);
-                return true;
+                return false;
             }
             catch
             {
                 // Absolutely never throw; if even fallback fails, force a no-op logger.
                 ApplyNoOpFallback();
-                return true;
+                return false;
             }
         }
 

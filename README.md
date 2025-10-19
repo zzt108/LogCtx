@@ -1,255 +1,404 @@
-# LogCtx - Structured Logging Library
+# LogCtx AI Code Generation Guide
 
-**Battle-tested structured logging for .NET applications with zero-config initialization and automatic context capture.**
+**Version:** 1.0
+**Target:** NLog + SEQ structured logging
+**Framework:** .NET 8.0, NUnit + Shouldly
 
-LogCtx is a production-ready logging library that provides structured logging capabilities with automatic source location capture, fluent property building, and seamless SEQ integration. It's designed to never throw exceptions during initialization or logging operations.
+***
 
----
+## Core Architecture
 
-## 🚀 **Quick Start**
+### Key Components
 
-### **1. Installation & Setup**
+**LogCtx** provides context-aware logging with automatic caller information capture through three main layers:
 
-⚠️ **MANDATORY INITIALIZATION** - Without this, LogCtx.Logger will be null and crash your application!
+1. **LogCtxShared** - Core abstractions (`ILogCtxLogger`, `IScopeContext`, `LogCtx`, `Props`)
+2. **NLogShared** - NLog adapter implementation (`CtxLogger`, `NLogScopeContext`)
+3. **SeriLogShared** - Serilog adapter implementation (alternative backend)
+
+***
+
+## Pattern Library
+
+### 1. Logger Initialization Pattern
 
 ```csharp
-using NLogShared;   // Required for FailsafeLogger
-using LogCtxShared; // Required for LogCtx classes
-using NLog;
+// ✅ CORRECT: Dispose logger properly
+using var log = new CtxLogger();
 
-// Initialize robust, non-throwing logging (MUST be called first!)
-FailsafeLogger.Initialize("NLog.config");
+// ✅ CORRECT: Explicit configuration path
+var log = new CtxLogger("Config/LogConfig.xml");
+
+// ❌ WRONG: Missing disposal
+var log = new CtxLogger(); // Memory leak risk
+log.Info("test");
+// No dispose called
 ```
 
-### **2. Basic Usage**
+**Rules:**
+
+- Always use `using` or explicit `Dispose()` call[^1]
+- Logger initialization never throws - uses failsafe fallback[^1]
+- Default config path: `Config/LogConfig.xml`[^1]
+
+***
+
+### 2. Structured Context Pattern
 
 ```csharp
-using NLogShared;   // Required for FailsafeLogger
-using LogCtxShared; // Required for LogCtx classes
+// ✅ CORRECT: Context with typed parameters
+log.Ctx.Set(new Props("userId", 123, true));
+log.Info("User action completed");
 
-// Simple logging with automatic context
-using var ctx = LogCtx.Set(); // ✅ Captures file/line automatically
-ctx.AddProperty("UserId", 12345);
-ctx.AddProperty("Operation", "UserLogin");
-LogCtx.Logger.Information("User logged in successfully", ctx);
+// ✅ CORRECT: Context with named properties
+log.Ctx.Set(new Props()
+    .Add("OrderId", orderId)
+    .Add("Status", status));
+log.Debug("Order processed");
+
+// ❌ WRONG: No context set before logging
+log.Info("Important message"); // Missing context for SEQ filtering
 ```
 
-### **3. Exception Handling**
+**Rules:**
+
+- Call `Ctx.Set()` before logging to attach scope properties[^1]
+- `Props` constructor auto-names params as `P00`, `P01`, `P02`...[^1]
+- Use `Add()` for explicit key naming[^1]
+- Context persists until next `Set()` call (auto-clears)[^1]
+
+***
+
+### 3. Stack Trace Context Pattern
 
 ```csharp
-using NLogShared;   // Required for FailsafeLogger
-using LogCtxShared; // Required for LogCtx classes
+// ✅ CORRECT: Automatic CTX_STRACE injection
+log.Ctx.Set(new Props("action", "data"));
+log.Info("Event occurred");
+// SEQ receives: CTX_STRACE = "FileName::MethodName::LineNumber"
 
+// ✅ CORRECT: Custom source marker
+var marker = log.Ctx.Src("checkpoint");
+log.Debug($"Reached {marker}");
+```
+
+**Rules:**
+
+- `CTX_STRACE` auto-generated on every `Ctx.Set()`[^1]
+- Format: `FileName::MethodName::LineNumber\r\n--filtered stack frames`[^1]
+- Filters out `System.*`, `NUnit.*`, `NLog.*`, `TechTalk.*` frames[^1]
+- Use `Src()` for lightweight file/method/line tokens[^1]
+
+***
+
+### 4. Exception Logging Pattern
+
+```csharp
+// ✅ CORRECT: Error with context
+try {
+    PerformOperation();
+} catch (Exception ex) {
+    log.Ctx.Set(new Props("operation", "create", "retries", retryCount));
+    log.Error(ex, "Operation failed after retries");
+}
+
+// ✅ CORRECT: Fatal with structured data
+log.Ctx.Set(new Props()
+    .AddJson("Config", configObject));
+log.Fatal(ex, "Startup configuration invalid");
+
+// ❌ WRONG: No context for exception
+catch (Exception ex) {
+    log.Error(ex, "Error"); // Missing diagnostic context
+}
+```
+
+**Rules:**
+
+- Always set context before error/fatal logs[^1]
+- Use `AddJson()` for complex objects in context[^1]
+- Exception passed as first parameter to `Error()`/`Fatal()`[^1]
+
+***
+
+### 5. Test Assertion Pattern
+
+```csharp
+[Test]
+public void Debug_Writes_To_MemoryTarget_With_Message()
+{
+    // Arrange
+    var logger = new CtxLogger();
+    _memoryTarget.Logs.Clear();
+
+    // Act
+    logger.Debug("debug message");
+    LogManager.Flush();
+
+    // Assert
+    _memoryTarget.Logs.Count.ShouldBe(1);
+    _memoryTarget.Logs[^0].ShouldContain("DEBUG|debug message");
+    logger.Dispose();
+}
+```
+
+**Rules:**
+
+- Always clear target before act phase[^1]
+- Call `LogManager.Flush()` before assertions[^1]
+- Dispose logger in test teardown or explicit call[^1]
+- Use `MemoryTarget` for deterministic log capture[^1]
+
+***
+
+## Common Pitfalls
+
+### ❌ PITFALL 1: Context Leakage
+
+```csharp
+// WRONG: Context persists across operations
+log.Ctx.Set(new Props("user", "admin"));
+log.Info("Admin login");
+ProcessUserRequest(); // Still has admin context!
+log.Info("User request"); // WRONG context attached
+```
+
+**Solution:** Always call `Ctx.Set()` before related log statements[^1]
+
+***
+
+### ❌ PITFALL 2: Missing Dispose
+
+```csharp
+// WRONG: Logger not disposed
+public void ProcessBatch() {
+    var log = new CtxLogger();
+    log.Info("Batch started");
+    // Method exits without dispose - buffer not flushed
+}
+```
+
+**Solution:** Use `using` pattern or store logger as field with IDisposable[^1]
+
+***
+
+### ❌ PITFALL 3: Null Values in Props
+
+```csharp
+// WRONG: Direct null addition
+props.Add("OptionalField", null); // Stores "null value" string
+
+// CORRECT: Conditional addition
+if (optionalField != null) {
+    props.Add("OptionalField", optionalField);
+}
+```
+
+**Solution:** Props converts null to `"null value"` string - prefer conditional adds[^1]
+
+***
+
+### ❌ PITFALL 4: Configuration Path Errors
+
+```csharp
+// WRONG: Relative path from bin folder
+var log = new CtxLogger("../../Config/LogConfig.xml");
+
+// CORRECT: Use AppContext.BaseDirectory
+var baseDir = AppContext.BaseDirectory;
+var configPath = Path.Combine(baseDir, "Config", "LogConfig.xml");
+var log = new CtxLogger(configPath);
+```
+
+**Solution:** Always use absolute paths or `AppContext.BaseDirectory`[^1]
+
+***
+
+### ❌ PITFALL 5: Shutdown vs Flush
+
+```csharp
+// WRONG: Shutdown in Dispose
+public void Dispose() {
+    LogManager.Shutdown(); // Stops all logging globally!
+}
+
+// CORRECT: Flush only
+public void Dispose() {
+    LogManager.Flush();
+}
+```
+
+**Solution:** Use `Flush()` not `Shutdown()` in instance disposal[^1]
+
+***
+
+## SEQ Integration Patterns
+
+### Query-Friendly Property Naming
+
+```csharp
+// ✅ CORRECT: SEQ filterable properties
+log.Ctx.Set(new Props()
+    .Add("UserId", userId)
+    .Add("OrderId", orderId)
+    .Add("Action", "checkout"));
+log.Info("Order placed");
+
+// SEQ Query: UserId = '12345' AND Action = 'checkout'
+```
+
+
+### JSON Serialization for Complex Objects
+
+```csharp
+// ✅ CORRECT: Structured logging of DTOs
+var order = new Order { Id = 1, Total = 99.99m };
+log.Ctx.Set(new Props().AddJson("Order", order));
+log.Info("Order created");
+
+// SEQ receives: Order = { "Id": 1, "Total": 99.99 }
+```
+
+
+***
+
+## Code Generation Templates
+
+### Template 1: Standard Log Statement
+
+```csharp
+log.Ctx.Set(new Props([param1], [param2], ...));
+log.[Level]([exception,] "[message]");
+```
+
+**Levels:** `Trace`, `Debug`, `Info`, `Warn`, `Error`, `Fatal`[^1]
+
+***
+
+### Template 2: Operation Block
+
+```csharp
 try
 {
-    // Your application logic
-    ProcessUserData(userData);
+    log.Ctx.Set(new Props([contextParams]));
+    log.Info("[operation] started");
+    
+    [operation code]
+    
+    log.Info("[operation] completed");
 }
 catch (Exception ex)
 {
-    using var errorCtx = LogCtx.Set();
-    errorCtx.AddProperty("UserId", userData.Id);
-    errorCtx.AddProperty("Operation", "ProcessUserData");
-    errorCtx.AddProperty("ErrorType", ex.GetType().Name);
-    LogCtx.Logger.Error("User data processing failed", ex, errorCtx);
+    log.Ctx.Set(new Props([errorContext]));
+    log.Error(ex, "[operation] failed");
     throw;
 }
 ```
 
----
 
-## 🎯 **Key Features**
+***
 
-### **Zero-Config Initialization**
-- ✅ **Never throws exceptions** during initialization
-- ✅ **Graceful fallback** when configuration is missing
-- ✅ **Thread-safe** initialization
-
-### **Automatic Context Capture**
-- ✅ **File and line number** captured automatically
-- ✅ **Method name** and **class name** resolution
-- ✅ **Timestamp** and **thread ID** tracking
-
-### **Fluent Property Building**
-- ✅ **Method chaining** for readable code
-- ✅ **Type-safe** property addition
-- ✅ **Structured data** optimization for SEQ queries
-
-### **Production-Ready**
-- ✅ **Battle-tested** in enterprise applications
-- ✅ **High-performance** with minimal overhead
-- ✅ **Memory efficient** context management
-
----
-
-## 📋 **Complete Application Example**
+### Template 3: Test Method
 
 ```csharp
-// ✅ COMPLETE APPLICATION SETUP
-using NLogShared;   // Required for FailsafeLogger
-using LogCtxShared; // Required for LogCtx classes
-using NLog;
-
-namespace YourApplication
+[Test]
+public void [MethodName]_[Scenario]_[ExpectedBehavior]()
 {
-    internal static class Program
-    {
-        [STAThread]
-        private static void Main()
-        {
-            // ⚠️ MANDATORY - Initialize logging first!
-            FailsafeLogger.Initialize("NLog.config");
-            
-            // Application startup context
-            using var startupCtx = LogCtx.Set();
-            startupCtx.AddProperty("ApplicationName", "YourApp");
-            startupCtx.AddProperty("Version", "1.0.0");
-            LogCtx.Logger.Information("Application starting", startupCtx);
-            
-            try
-            {
-                Application.EnableVisualStyles();
-                Application.SetCompatibleTextRenderingDefault(false);
-                Application.Run(new MainForm());
-            }
-            catch (Exception ex)
-            {
-                using var errorCtx = LogCtx.Set();
-                errorCtx.AddProperty("ApplicationName", "YourApp");
-                errorCtx.AddProperty("ErrorType", ex.GetType().Name);
-                LogCtx.Logger.Fatal("Application failed to start", ex, errorCtx);
-                throw;
-            }
-            finally
-            {
-                using var shutdownCtx = LogCtx.Set();
-                shutdownCtx.AddProperty("ApplicationName", "YourApp");
-                LogCtx.Logger.Information("Application shutting down", shutdownCtx);
-            }
-        }
-    }
+    // Arrange
+    var logger = new CtxLogger();
+    _memoryTarget.Logs.Clear();
+
+    // Act
+    [test action]
+    LogManager.Flush();
+
+    // Assert
+    _memoryTarget.Logs.Count.ShouldBe([expectedCount]);
+    _memoryTarget.Logs[^0].ShouldContain("[expected content]");
+    logger.Dispose();
 }
 ```
 
----
 
-## 🧪 **Test Integration**
+***
 
-### **Unit Test Setup**
+## Configuration Patterns
 
-```csharp
-using NUnit.Framework;
-using Shouldly;
-using NLogShared;   // Required for FailsafeLogger
-using LogCtxShared; // Required for LogCtx classes
-
-[TestFixture]
-public class YourServiceTests
-{
-    [OneTimeSetUp]
-    public void OneTimeSetup()
-    {
-        // ⚠️ MANDATORY INITIALIZATION - Initialize once per test fixture
-        FailsafeLogger.Initialize("NLog.config");
-    }
-
-    [Test]
-    public void ProcessFile_ValidInput_ShouldSucceed()
-    {
-        // Arrange
-        using var testCtx = LogCtx.Set();
-        testCtx.AddProperty("TestMethod", nameof(ProcessFile_ValidInput_ShouldSucceed));
-        testCtx.AddProperty("TestCategory", "FileProcessing");
-        LogCtx.Logger.Information("Test execution started", testCtx);
-
-        // Act
-        var processor = new FileProcessor();
-        var result = processor.ProcessFile("test.txt");
-
-        // Assert
-        result.ShouldBeTrue();
-        
-        LogCtx.Logger.Information("Test execution completed", testCtx);
-    }
-}
-```
-
----
-
-## ⚙️ **Configuration**
-
-### **NLog.config Example**
+### Minimal NLog XML
 
 ```xml
 <?xml version="1.0" encoding="utf-8" ?>
-<nlog xmlns="http://www.nlog-project.org/schemas/NLog.xsd"
-      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  
+<nlog xmlns="http://www.nlog-project.org/schemas/NLog.xsd">
   <targets>
-    <!-- Console output -->
-    <target xsi:type="Console" name="console"
-            layout="${longdate} ${level:uppercase=true} ${logger} ${message} ${exception:format=tostring}" />
-    
-    <!-- SEQ structured logging -->
-    <target xsi:type="Seq" name="seq" serverUrl="http://localhost:5341" apiKey="">
-      <property name="Application" value="YourApp" />
-      <property name="Environment" value="Development" />
+    <target xsi:type="Seq" 
+            name="seq" 
+            serverUrl="http://localhost:5341" 
+            apiKey="">
+      <property name="CTX_STRACE" layout="${scopeproperty:CTX_STRACE}" />
+      <property name="P00" layout="${event-properties:P00}" />
     </target>
   </targets>
-
   <rules>
-    <logger name="*" minlevel="Debug" writeTo="console" />
-    <logger name="*" minlevel="Information" writeTo="seq" />
+    <logger name="*" minlevel="Trace" writeTo="seq" />
   </rules>
 </nlog>
 ```
 
----
+**Key:** Always include `CTX_STRACE` and `Pxx` properties in SEQ target[^1]
 
-## 🚨 **Critical Usage Notes**
+***
 
-### **MUST DO:**
-1. ✅ **Always call** `FailsafeLogger.Initialize("NLog.config")` first
-2. ✅ **Include both** `using NLogShared;` and `using LogCtxShared;`
-3. ✅ **Use `using` statements** with LogCtx.Set() for proper disposal
-4. ✅ **Initialize once** per application/test fixture
+## Testing Checklist
 
-### **NEVER DO:**
-1. ❌ **Never call** `LogCtx.InitLogCtx()` (this method doesn't exist!)
-2. ❌ **Never omit** the required using statements
-3. ❌ **Never forget** to dispose LogCtx contexts
-4. ❌ **Never initialize** multiple times in the same application
+When generating test code, ensure:
 
----
+- [ ] `[SetUp]` resets `LogManager.Configuration`[^1]
+- [ ] `[TearDown]` calls `LogManager.Flush()`[^1]
+- [ ] MemoryTarget layout includes `CTX_STRACE` and event properties[^1]
+- [ ] Tests clear `_memoryTarget.Logs` before act phase[^1]
+- [ ] Assertions check log count, level, message, and context[^1]
+- [ ] Logger disposed after each test[^1]
 
-## 🔗 **Additional Resources**
+***
 
-- **[Step-0-Integration-Guide.md]** - Detailed integration walkthrough
-- **[AI-Code-Generation-Guide.md]** - AI-assisted development patterns
-- **[Usage-Patterns-Examples.md]** - Advanced usage examples
-- **[Performance-Guide.md]** - Optimization techniques
+## Performance Considerations
 
----
+### Avoid String Interpolation in Log Messages
 
-## 📊 **Real-World Usage**
+```csharp
+// ❌ WRONG: Eager evaluation
+log.Info($"Processing {expensiveCalculation()}"); 
 
-LogCtx is battle-tested in production applications:
+// ✅ CORRECT: Use context properties
+log.Ctx.Set(new Props("value", expensiveCalculation()));
+log.Info("Processing value");
+```
 
-- **7-project modular architecture** with centralized logging
-- **Git workflow automation** with structured audit trails
-- **Unit test execution** with detailed context capture
-- **Recent files management** with performance tracking
-- **SEQ dashboard** for operational monitoring
 
-### **Key Benefits Demonstrated:**
-- ✅ **Zero crashes** from logging operations
-- ✅ **Rich structured data** for operational insights
-- ✅ **Seamless SEQ integration** for query optimization
-- ✅ **Test-friendly patterns** with NUnit/Shouldly
-- ✅ **High performance** with minimal overhead
+### Batch Context Updates
 
----
+```csharp
+// ❌ WRONG: Multiple Set() calls
+log.Ctx.Set(new Props("A", 1));
+log.Ctx.Set(new Props("B", 2)); // Clears A!
 
-**Version:** 0.3.1  
-**Last Updated:** October 2025  
-**Compatibility:** .NET 8.0+, NLog 6.0.4+
+// ✅ CORRECT: Single Set() with all properties
+log.Ctx.Set(new Props()
+    .Add("A", 1)
+    .Add("B", 2));
+```
+
+
+***
+
+## Summary
+
+When generating LogCtx-based logging code:
+
+1. **Always** use `using var log = new CtxLogger();`
+2. **Always** call `Ctx.Set()` before logging
+3. **Never** call `LogManager.Shutdown()` in instance methods
+4. **Always** use `MemoryTarget` + `Flush()` in tests
+5. **Prefer** named properties over positional `Pxx` keys for SEQ queries
+
+This guide ensures consistent, testable, SEQ-friendly logging patterns across the codebase.[^1]

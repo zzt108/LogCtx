@@ -1,22 +1,25 @@
 ﻿using LogCtxShared;
 using Microsoft.Extensions.Configuration;
 using Serilog;
-using Serilog.Context;
 
 namespace SeriLogShared
 {
-
     public class CtxLogger : ILogCtxLogger
     {
         private static IConfigurationRoot? _configuration = null;
+        private static bool _isConfigured = false;
 
         public CtxLogger()
         {
+            var baseDir = AppContext.BaseDirectory;
+            SeriLogFailsafeLogger.Initialize(baseDir);
+
             if (_configuration is not null)
             {
                 Log.Logger = new LoggerConfiguration()
                     .ReadFrom.Configuration(_configuration)
                     .CreateLogger();
+                _isConfigured = true;
             }
         }
 
@@ -24,27 +27,55 @@ namespace SeriLogShared
 
         public bool ConfigureJson(string configPath)
         {
-            _configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile(configPath)
-                .Build();
-            Log.Logger = new LoggerConfiguration()
-                .ReadFrom.Configuration(_configuration )
-                .CreateLogger();
-            return true;
+            if (_isConfigured)
+            {
+                return true; // Already configured
+            }
+
+            try
+            {
+                _configuration = new ConfigurationBuilder()
+                    .SetBasePath(Directory.GetCurrentDirectory())
+                    .AddJsonFile(configPath)
+                    .Build();
+                Log.Logger = new LoggerConfiguration()
+                    .ReadFrom.Configuration(_configuration)
+                    .CreateLogger();
+                _isConfigured = true;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to configure Serilog from JSON: {ex.Message}");
+                return false;
+            }
         }
 
         public bool ConfigureXml(string configPath)
         {
-            _configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddXmlFile(configPath)
-                .Build();
+            if (_isConfigured)
+            {
+                return true; // Already configured
+            }
 
-            Log.Logger = new LoggerConfiguration()
-                .ReadFrom.Configuration(_configuration)
-                .CreateLogger();
-            return true;
+            try
+            {
+                _configuration = new ConfigurationBuilder()
+                    .SetBasePath(Directory.GetCurrentDirectory())
+                    .AddXmlFile(configPath)
+                    .Build();
+
+                Log.Logger = new LoggerConfiguration()
+                    .ReadFrom.Configuration(_configuration)
+                    .CreateLogger();
+                _isConfigured = true;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to configure Serilog from XML: {ex.Message}");
+                return false;
+            }
         }
 
         public void Debug(string message)
@@ -82,25 +113,4 @@ namespace SeriLogShared
             Log.Warning(message);
         }
     }
-
-    public class SeriLogScopeContext : IScopeContext
-    {
-        public void Clear()
-        {
-            LogContext.Reset();
-        }
-
-        public void PushProperty(string key, object value)
-        {
-            LogContext.PushProperty(key, value);
-        }
-    }
-
-    //public class Props : LogCtxShared.Props
-    //{
-    //    public Props(params object[] args):base(args) 
-    //    {
-    //    }
-
-    //}
 }

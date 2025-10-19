@@ -1,6 +1,7 @@
 ﻿using LogCtxShared;
 using NLog;
 using NLog.Config;
+using NLog.Targets;
 
 namespace NLogShared
 {
@@ -9,18 +10,30 @@ namespace NLogShared
         private static string? _logConfigPath = null;
         private static bool _isConfigured = false;
 
-        private Logger? Logger;
-        private LogCtxShared.LogCtx _ctx;
-
-//        public LogCtx Ctx { get => new LogCtx(new NLogScopeContext()); set => throw new NotImplementedException(); }
+        private readonly Logger? Logger;
 
         public LogCtxShared.LogCtx Ctx { get; }
 
-        // public LogCtxShared.LogCtx Ctx
-        // {
-        //     get => _ctx;
-        //     set => _ctx = value;
-        // }
+        public CtxLogger(): this(_logConfigPath)
+        {
+        }
+
+        public CtxLogger(IScopeContext? scopeContext = null): this(_logConfigPath, scopeContext)
+        {
+        }
+
+        public CtxLogger(string? logConfigPath) : this(logConfigPath, null)
+        {
+        }
+
+        public CtxLogger(string? logConfigPath, IScopeContext? scopeContext = null)
+        {
+            // ConfigureXml(logConfigPath);
+            NLogFailsafeLogger.Initialize(this, logConfigPath);
+            Logger = LogManager.GetCurrentClassLogger();
+            if (scopeContext is null) { scopeContext = new NLogScopeContext(); }
+            Ctx = new LogCtxShared.LogCtx(scopeContext); // Initialize the context
+        }
 
         public bool ConfigureJson(string configPath)
         {
@@ -29,10 +42,6 @@ namespace NLogShared
 
         public bool ConfigureXml(string? configPath)
         {
-            //if (configPath is null)
-            //{
-            //    return false;
-            //}
 
             if (_isConfigured)
             {
@@ -55,7 +64,6 @@ namespace NLogShared
                 Console.WriteLine(ex);
                 Console.WriteLine("Failed to configure logger from XML.", configPath);
                 return false;
-                // throw new ArgumentException("Failed to configure logger from XML.", configPath);
             }
         }
 
@@ -90,17 +98,6 @@ Refactoring: Remove the LogManager.Shutdown() call from Dispose. NLog can often 
             Logger?.Info(message);
         }
 
-        public CtxLogger(): this(_logConfigPath)
-        {
-        }
-
-        public CtxLogger(string logConfigPath)
-        {
-            ConfigureXml(logConfigPath);
-            Logger = LogManager.GetCurrentClassLogger();
-            Ctx = new LogCtxShared.LogCtx(new NLogScopeContext()); // Initialize the context
-        }
-
         public void Trace(string message)
         {
             Logger?.Trace(message);
@@ -109,19 +106,6 @@ Refactoring: Remove the LogManager.Shutdown() call from Dispose. NLog can often 
         public void Warn(string message)
         {
             Logger?.Warn(message);
-        }
-    }
-
-    public class NLogScopeContext : IScopeContext
-    {
-        public void Clear()
-        {
-            NLog.ScopeContext.Clear();
-        }
-
-        public void PushProperty(string key, object value)
-        {
-            NLog.ScopeContext.PushProperty(key, value);
         }
     }
 }

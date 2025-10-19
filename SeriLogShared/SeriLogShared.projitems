@@ -9,13 +9,15 @@
     <Import_RootNamespace>SeriLogShared</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\LogCtx\SeriLogShared\CtxLogger.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)CtxLogger.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SeriLogFailsafeLogger.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SeriLogScopeContext.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Xml" Version="8.0.0" />
-    <PackageReference Include="Serilog" Version="4.0.2" />
+    <PackageReference Include="Serilog" Version="4.3.0" />
     <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0" />
     <PackageReference Include="Serilog.Settings.Configuration" Version="8.0.2" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
