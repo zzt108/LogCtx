@@ -64,7 +64,6 @@ namespace NLogShared
                 Console.WriteLine(ex);
                 Console.WriteLine("Failed to configure logger from XML.", configPath);
                 return false;
-                // throw new ArgumentException("Failed to configure logger from XML.", configPath);
             }
         }
 

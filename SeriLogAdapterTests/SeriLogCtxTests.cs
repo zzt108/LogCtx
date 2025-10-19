@@ -27,6 +27,7 @@ namespace SeriLogAdapter.Tests
 
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Verbose()
+                .Enrich.FromLogContext()
                 .WriteTo.Sink(_sink)
                 .CreateLogger();
         }
@@ -179,7 +180,6 @@ namespace SeriLogAdapter.Tests
             evt.RenderMessage().ShouldBe("trace message");
         }
 
-        // ✅ NEW: Simple in-memory sink for capturing Serilog events
         // Alternative: Use Serilog.Sinks.TestCorrelator NuGet package for production-grade testing
         private class InMemorySink : Serilog.Core.ILogEventSink
         {

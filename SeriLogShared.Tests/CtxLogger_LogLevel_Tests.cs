@@ -24,22 +24,14 @@ namespace SeriLogShared.Tests
         public void SetUp()
         {
             _sink = new TestSink();
-            //_testLogger = new LoggerConfiguration()
-            //    .MinimumLevel.Verbose()
-            //    .WriteTo.Sink(_sink)
-            //    .CreateLogger();
-
-            //Log.CloseAndFlush();
-            //Log.Logger = _testLogger;
-
-            //_ctxLogger = new CtxLogger();
         }
 
         [TearDown]
         public void TearDown()
         {
-            //_testLogger?.Dispose();
             _ctxLogger?.Dispose();
+            Log.CloseAndFlush();
+
         }
 
         private sealed class TestSink : ILogEventSink

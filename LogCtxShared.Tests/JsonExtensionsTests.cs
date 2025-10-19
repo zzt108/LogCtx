@@ -48,10 +48,10 @@ namespace LogCtxShared.Tests
         public void AsJson_WithNullObject_ReturnsNullString()
         {
             // Arrange
-            object obj = null;
+            object? obj = null;
 
             // Act
-            var result = obj.AsJson(false);
+            var result = obj?.AsJson(false);
 
             // Assert
             result.ShouldBe("null");
@@ -170,7 +170,7 @@ namespace LogCtxShared.Tests
         public void FromJson_WithNullJson_ThrowsException()
         {
             // Arrange
-            string json = null;
+            string? json = null;
 
             // Act & Assert
             Should.Throw<Exception>(() => JsonExtensions.FromJson<TestDto>(json));

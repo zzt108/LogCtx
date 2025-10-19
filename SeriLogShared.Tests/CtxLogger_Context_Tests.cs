@@ -20,21 +20,12 @@ namespace SeriLogShared.Tests
     public class CtxLogger_Context_Tests
     {
         private TestSink _sink;
-        // private Logger _testLogger;
         private CtxLogger _ctxLogger;
 
         [SetUp]
         public void SetUp()
         {
             _sink = new TestSink();
-            //_testLogger = new LoggerConfiguration()
-            //    .MinimumLevel.Verbose()
-            //    .Enrich.FromLogContext()
-            //    .WriteTo.Sink(_sink)
-            //    .CreateLogger();
-
-            //Log.CloseAndFlush();
-            //Log.Logger = _testLogger;
 
             _ctxLogger = new CtxLogger();
         }
