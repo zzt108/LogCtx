@@ -51,7 +51,7 @@ namespace NLogShared
             try
             {
                 var config = new LoggingConfiguration();
-                if (configPath is null) { configPath = "Config\\LogConfig.xml"; }
+                if (configPath is null) { configPath = "Config\\NLogConfig.xml"; }
                 // Use the modern way to configure
                 LogManager.Setup().LoadConfigurationFromFile(configPath, optional: false);
                 LogManager.AutoShutdown = true; // Ensure NLog cleans up on app exit

@@ -8,7 +8,7 @@ namespace SeriLogShared
     // Uses SelfLog for diagnosing Serilog configuration errors during tests/debug.
     internal static class SeriLogFailsafeLogger
     {
-        public static void Initialize(string baseDir, string? jsonFile = "Config/LogConfig.json", string? xmlFile = "Config/LogConfig.xml")
+        public static void Initialize(string baseDir, string? jsonFile = "Config/SeriLogConfig.json", string? xmlFile = "Config/SeriLogConfig.xml")
         {
             try
             {
