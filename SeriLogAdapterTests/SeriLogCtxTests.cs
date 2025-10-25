@@ -12,8 +12,8 @@ namespace SeriLogAdapter.Tests
     [TestFixture]
     public class SeriLogCtxTests
     {
-        private const string ConfigPathJson = "Config/LogConfig.json";
-        private const string ConfigPathXml = "Config/LogConfig.xml";
+        private const string ConfigPathJson = "Config/SeriLogConfig.json";
+        private const string ConfigPathXml = "Config/SeriLogConfig.xml";
 
         // ✅ NEW: In-memory sink for capturing log events during tests
         private InMemorySink _sink;
