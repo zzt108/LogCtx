@@ -35,13 +35,13 @@ public class LogCtx:IDisposable
     /// <param name="sourceFilePath">The source file path.</param>
     /// <param name="sourceLineNumber">The source line number.</param>
     /// <returns>The scope context properties.</returns>
-    public Props Set(
-        Props scopeContextProps = null,
+    public static Props Set(
+        Props? scopeContextProps = null,
         [CallerMemberName] string memberName = "",
         [CallerFilePath] string sourceFilePath = "",
         [CallerLineNumber] int sourceLineNumber = 0)
     {
-        _scopeContext.Clear();
+        _scopeContext?.Clear();
 
         var fileName = Path.GetFileNameWithoutExtension(sourceFilePath);
         var methodName = memberName;
@@ -63,7 +63,7 @@ public class LogCtx:IDisposable
             }
         }
 
-        _scopeContext.PushProperty(STRACE, strace2);
+        _scopeContext?.PushProperty(STRACE, strace2);
 
         scopeContextProps ??= new Props();
         scopeContextProps.Remove(STRACE);
@@ -71,13 +71,13 @@ public class LogCtx:IDisposable
 
         foreach (var key in scopeContextProps.Keys)
         {
-            _scopeContext.PushProperty(key, scopeContextProps[key]?.ToString());
+            _scopeContext?.PushProperty(key, scopeContextProps[key]?.ToString());
         }
 
         return scopeContextProps;
     }
 
-    public string Src(
+    public static string Src(
         string message,
         [CallerMemberName] string memberName = "",
         [CallerFilePath] string sourceFilePath = "",
