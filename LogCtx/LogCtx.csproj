@@ -8,4 +8,25 @@
 
   <Import Project="..\LogCtxShared\LogCtxShared.projitems" Label="Shared" />
 
+    <ItemGroup>
+    <!-- NLog configuration files -->
+    <None Update="NLog.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="NLog.Development.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Update="Microsoft.Extensions.Logging.Abstractions" Version="10.0.1" />
+      <PackageReference Update="Newtonsoft.Json" Version="13.0.4" />
+      <PackageReference Update="NLog" Version="6.0.7" />
+      <PackageReference Update="NLog.Extensions.Logging" Version="6.1.0" />
+      <PackageReference Update="NLog.Targets.Seq" Version="4.0.2" />
+    </ItemGroup>
+
 </Project>
