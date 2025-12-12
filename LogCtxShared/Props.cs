@@ -2,6 +2,20 @@
 
 namespace LogCtxShared;
 
+/// <summary>
+/// Fluent properties dictionary for structured logging context.
+/// Compatible with ILogger.BeginScope() - all properties automatically captured by NLog.
+/// </summary>
+/// <remarks>
+/// Usage with NLog-native:
+/// <code>
+/// using (_logger.SetContext(new Props().Add("UserId", 123).Add("Action", "Login")))
+/// {
+///     _logger.LogInformation("User action");
+/// }
+/// </code>
+/// All properties in Props appear in structured log sinks (SEQ, etc.) for querying.
+/// </remarks>
 public class Props : Dictionary<string, object>, IDisposable
 {
     private bool _disposedValue;

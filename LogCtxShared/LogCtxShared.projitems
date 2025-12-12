@@ -9,10 +9,17 @@
     <Import_RootNamespace>LogCtxShared</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <!-- NuGet Packages -->
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <Compile Include="$(MSBuildThisFileDirectory)ILogCtxLogger.cs" />
+    <PackageReference Include="NLog" Version="5.3.4" />
+    <PackageReference Include="NLog.Extensions.Logging" Version="5.3.14" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+    <!-- ✅ NEW - NLog-native files -->
+    <Compile Include="$(MSBuildThisFileDirectory)NLogContextExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SourceContext.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)LogContextKeys.cs" />
+    <!-- ✅ KEEP - Existing utility files -->
     <Compile Include="$(MSBuildThisFileDirectory)JsonExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)LogCtx.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Props.cs" />
   </ItemGroup>
 </Project>
