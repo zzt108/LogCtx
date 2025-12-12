@@ -27,7 +27,6 @@ namespace NLogShared.Tests
             memoryTarget = new MemoryTarget("memory")
             {
                 Layout = "${level:uppercase=true}|${message}|${scopeproperty:CTX_STRACE}|${scopeproperty:CustomKey}|${scopeproperty:P00}|${scopeproperty:P01}|${scopeproperty:P02}|${scopeproperty:P03}"
-
             };
 
             var config = new LoggingConfiguration();
@@ -55,7 +54,7 @@ namespace NLogShared.Tests
             memoryTarget.Logs.Clear();
 
             // Act
-            ctxLogger.Ctx.Set(new Props("valueA"));
+            LogCtx.Set(new Props("valueA"));
             ctxLogger.Info("test message");
             LogManager.Flush();
 
@@ -74,7 +73,7 @@ namespace NLogShared.Tests
             memoryTarget.Logs.Clear();
 
             // Act
-            ctxLogger.Ctx.Set(new Props("valueA", "valueB"));
+            LogCtx.Set(new Props("valueA", "valueB"));
             ctxLogger.Info("test message");
             LogManager.Flush();
 
@@ -92,7 +91,7 @@ namespace NLogShared.Tests
             memoryTarget.Logs.Clear();
 
             // Act
-            ctxLogger.Ctx.Set(new Props("A", "B"));
+            LogCtx.Set(new Props("A", "B"));
             ctxLogger.Info("combined test");
             LogManager.Flush();
 
@@ -111,10 +110,10 @@ namespace NLogShared.Tests
             memoryTarget.Logs.Clear();
 
             // Act
-            ctxLogger.Ctx.Set(new Props("first"));
+            LogCtx.Set(new Props("first"));
             ctxLogger.Info("log one");
 
-            ctxLogger.Ctx.Set(new Props("second"));
+            LogCtx.Set(new Props("second"));
             ctxLogger.Info("log two");
             LogManager.Flush();
 
@@ -133,7 +132,7 @@ namespace NLogShared.Tests
             memoryTarget.Logs.Clear();
 
             // Act
-            ctxLogger.Ctx.Set(new Props("test value", 123, true));
+            LogCtx.Set(new Props("test value", 123, true));
             ctxLogger.Info("json test");
             LogManager.Flush();
 
@@ -156,7 +155,7 @@ namespace NLogShared.Tests
             memoryTarget.Logs.Clear();
 
             // Act
-            ctxLogger.Ctx.Set(new Props()); // No params
+            LogCtx.Set(new Props()); // No params
             ctxLogger.Info("empty props");
             LogManager.Flush();
 
@@ -175,7 +174,7 @@ namespace NLogShared.Tests
             memoryTarget.Logs.Clear();
 
             // Act
-            ctxLogger.Ctx.Set(null);
+            LogCtx.Set(null);
             ctxLogger.Info("null props");
             LogManager.Flush();
 
@@ -193,7 +192,7 @@ namespace NLogShared.Tests
             memoryTarget.Logs.Clear();
 
             // Act
-            using var props = ctxLogger.Ctx.Set(new Props("P00-Hello", "P01-World"));
+            using var props = LogCtx.Set(new Props("P00-Hello", "P01-World"));
             props.Add("CustomKey", "CustomValue1");
             props.Add("CUSTOMKEY", "CustomValue2");
             ctxLogger.Info("custom key test");

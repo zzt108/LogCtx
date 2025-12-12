@@ -86,7 +86,7 @@ namespace NLogShared.Tests
             memoryTarget.ShouldNotBeNull();
 
             // Act
-            logger.Ctx.Set(new Props("valueA", "valueB"));
+            LogCtx.Set(new Props("valueA", "valueB"));
             logger.Info("test with props");
             LogManager.Flush();
 
@@ -126,7 +126,7 @@ namespace NLogShared.Tests
 <nlog xmlns=""http://www.nlog-project.org/schemas/NLog.xsd""
       xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance"">
   <targets>
-    <target xsi:type=""Memory"" name=""mem"" 
+    <target xsi:type=""Memory"" name=""mem""
             layout=""${level:uppercase=true}|${message}|${scopeproperty:CTX_STRACE}|${event-properties:P00:format=@}|${event-properties:P01:format=@}"" />
   </targets>
   <rules>
@@ -180,7 +180,7 @@ namespace NLogShared.Tests
       xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance"">
   <targets>
     <!-- 🔄 MODIFY: Add :format=@ for JSON serialization -->
-    <target xsi:type=""Memory"" name=""mem"" 
+    <target xsi:type=""Memory"" name=""mem""
             layout=""${level:uppercase=true}|${message}|${scopeproperty:CTX_STRACE}|${event-properties:P00:format=@}|${event-properties:P01:format=@}"" />
   </targets>
   <rules>

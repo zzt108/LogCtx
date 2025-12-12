@@ -127,7 +127,7 @@ namespace NLogShared.Tests
             // Act
             Parallel.For(0, threadCount, i =>
             {
-                logger.Ctx.Set(new Props($"thread-{i}"));
+                LogCtx.Set(new Props($"thread-{i}"));
                 logger.Info($"message {i}");
             });
             LogManager.Flush();
@@ -155,7 +155,7 @@ namespace NLogShared.Tests
             {
                 try
                 {
-                    logger.Ctx.Set(new Props($"value-{i}"));
+                    LogCtx.Set(new Props($"value-{i}"));
                     logger.Info($"log {i}");
                 }
                 catch (Exception ex)
@@ -283,7 +283,7 @@ namespace NLogShared.Tests
                 {
                     for (int j = 0; j < logsPerThread; j++)
                     {
-                        logger.Ctx.Set(new Props($"thread-{i}-iteration-{j}"));
+                        LogCtx.Set(new Props($"thread-{i}-iteration-{j}"));
                         logger.Debug($"thread-{i}-log-{j}");
                     }
                 }
@@ -383,7 +383,7 @@ namespace NLogShared.Tests
                 try
                 {
                     await Task.Delay(1);
-                    logger.Ctx.Set(new Props($"async-value-{i}"));
+                    LogCtx.Set(new Props($"async-value-{i}"));
                     logger.Debug($"async-log-{i}");
                 }
                 catch (Exception ex)
@@ -448,7 +448,7 @@ namespace NLogShared.Tests
             {
                 try
                 {
-                    logger.Ctx.Set(new Props($"stress-{i}"));
+                    LogCtx.Set(new Props($"stress-{i}"));
                     logger.Info($"stress-message-{i}");
                 }
                 catch (Exception ex)

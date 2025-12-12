@@ -16,7 +16,7 @@ namespace LogCtxShared.Tests
     [Category("unit")]
     public class LogCtxTests
     {
-        const string STR_CTX_STRACE = "CTX_STRACE";
+        private const string STR_CTX_STRACE = "CTX_STRACE";
         private CtxLogger Log = new();
 
         [TearDown]
@@ -35,7 +35,7 @@ namespace LogCtxShared.Tests
             Log = new CtxLogger((IScopeContext)(scope));
 
             // Act
-            var enriched = Log.Ctx.Set(props);
+            var enriched = LogCtx.Set(props);
 
             // Assert
             scope.Cleared.ShouldBeTrue();
@@ -56,7 +56,7 @@ namespace LogCtxShared.Tests
             Log = new CtxLogger((IScopeContext)(scope));
 
             // Act
-            var enriched = Log.Ctx.Set(null);
+            var enriched = LogCtx.Set(null);
 
             // Assert
             scope.Cleared.ShouldBeTrue();
@@ -74,7 +74,7 @@ namespace LogCtxShared.Tests
             Log = new CtxLogger((IScopeContext)(scope));
 
             // Act
-            var enriched = Log.Ctx.Set(new Props("X"));
+            var enriched = LogCtx.Set(new Props("X"));
 
             // Assert
             var s = enriched[STR_CTX_STRACE] as string;
@@ -90,7 +90,7 @@ namespace LogCtxShared.Tests
         public void SrcReturnsFileMethodLineToken()
         {
             // Act
-            var src = Log.Ctx.Src("Message parameter");
+            var src = LogCtx.Src("Message parameter");
 
             // Assert
             src.ShouldNotBeNullOrWhiteSpace();
@@ -110,7 +110,7 @@ namespace LogCtxShared.Tests
             props.Add("Custom", "Z");
 
             // Act
-            var enriched = Log.Ctx.Set(props);
+            var enriched = LogCtx.Set(props);
 
             // Assert
             scope.Pushed.ShouldContain(kv => kv.Key == "P00" && kv.Value != null && kv.Value.ToString() == 123.ToString());
@@ -130,7 +130,7 @@ namespace LogCtxShared.Tests
             var original = new Props("one");
 
             // Act
-            var enriched = Log.Ctx.Set(original);
+            var enriched = LogCtx.Set(original);
 
             // Assert
             ReferenceEquals(enriched, original).ShouldBeTrue("Set should enrich and return the same Props instance");
@@ -150,7 +150,7 @@ namespace LogCtxShared.Tests
             var props = new Props("ValueA", "ValueB");
 
             // Act
-            var enriched = Log.Ctx.Set(props);
+            var enriched = LogCtx.Set(props);
 
             // Assert
             // Verify enriched Props contains CTX_STRACE and Pxx similar to FakeScopeContext tests
@@ -163,7 +163,7 @@ namespace LogCtxShared.Tests
             enriched["P00"].ShouldBe("ValueA".AsJson(true));
             enriched["P01"].ShouldBe("ValueB".AsJson(true));
 
-            // Note: Cannot directly verify NLog.ScopeContext.PushProperty was called 
+            // Note: Cannot directly verify NLog.ScopeContext.PushProperty was called
             // without MemoryTarget integration, but enriched Props validates LogCtx.Set behavior
         }
 
@@ -175,7 +175,7 @@ namespace LogCtxShared.Tests
             Log = new CtxLogger((IScopeContext)nlogScope);
 
             // Act
-            var enriched = Log.Ctx.Set(new Props("X"));
+            var enriched = LogCtx.Set(new Props("X"));
 
             // Assert
             var strace = enriched[STR_CTX_STRACE] as string;
@@ -194,7 +194,7 @@ namespace LogCtxShared.Tests
             Log = new CtxLogger((IScopeContext)nlogScope);
 
             // Act
-            var enriched = Log.Ctx.Set(null);
+            var enriched = LogCtx.Set(null);
 
             // Assert
             enriched.ShouldNotBeNull();

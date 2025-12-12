@@ -2,7 +2,7 @@
 
 namespace LogCtxShared;
 
-public class LogCtx:IDisposable
+public class LogCtx : IDisposable
 {
     public const string FILE = "CTX_FILE";
     public const string LINE = "CTX_LINE";

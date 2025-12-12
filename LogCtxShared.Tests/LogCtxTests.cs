@@ -16,7 +16,7 @@ namespace LogCtxShared.Tests
     [Category("unit")]
     public class LogCtxTests
     {
-        const string STR_CTX_STRACE = "CTX_STRACE";
+        private const string STR_CTX_STRACE = "CTX_STRACE";
         private CtxLogger Log = new();
 
         [TearDown]
@@ -35,7 +35,7 @@ namespace LogCtxShared.Tests
             Log = new CtxLogger((IScopeContext)(scope));
 
             // Act
-            var enriched = Log.Ctx.Set(props);
+            var enriched = LogCtx.Set(props);
 
             // Assert
             scope.Cleared.ShouldBeTrue();
@@ -57,7 +57,7 @@ namespace LogCtxShared.Tests
             Log = new CtxLogger((IScopeContext)(scope));
 
             // Act
-            var enriched = Log.Ctx.Set(null);
+            var enriched = LogCtx.Set(null);
 
             // Assert
             scope.Cleared.ShouldBeTrue();
@@ -75,7 +75,7 @@ namespace LogCtxShared.Tests
             Log = new CtxLogger((IScopeContext)(scope));
 
             // Act
-            var enriched = Log.Ctx.Set(new Props("X"));
+            var enriched = LogCtx.Set(new Props("X"));
 
             // Assert
             var s = enriched[STR_CTX_STRACE] as string;
@@ -90,7 +90,7 @@ namespace LogCtxShared.Tests
         public void SrcReturnsFileMethodLineToken()
         {
             // Act
-            var src = Log.Ctx.Src("Message parameter");
+            var src = LogCtx.Src("Message parameter");
 
             // Assert
             src.ShouldNotBeNullOrWhiteSpace();
@@ -110,10 +110,10 @@ namespace LogCtxShared.Tests
             props.Add("Custom", "Z");
 
             // Act
-            var enriched = Log.Ctx.Set(props);
+            var enriched = LogCtx.Set(props);
 
             // Assert
-            // 🔄 MODIFY — FakeScopeContext stores raw objects, expect actual values
+            // FakeScopeContext stores raw objects, expect actual values
             scope.Pushed.ShouldContain(kv => kv.Key == "P00" && kv.Value != null && kv.Value.ToString() == "123");
             scope.Pushed.ShouldContain(kv => kv.Key == "P01" && kv.Value != null && kv.Value.ToString() == "True"); // C# bool.ToString() = "True"
             scope.Pushed.ShouldContain(kv => kv.Key == "Custom" && kv.Value != null && kv.Value.ToString() == "Z");
@@ -131,7 +131,7 @@ namespace LogCtxShared.Tests
             var original = new Props("one");
 
             // Act
-            var enriched = Log.Ctx.Set(original);
+            var enriched = LogCtx.Set(original);
 
             // Assert
             ReferenceEquals(enriched, original).ShouldBeTrue("Set should enrich and return the same Props instance");

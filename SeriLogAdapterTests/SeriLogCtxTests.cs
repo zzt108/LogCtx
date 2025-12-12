@@ -60,7 +60,7 @@ namespace SeriLogAdapter.Tests
             var result = log.ConfigureXml(ConfigPathXml);
 
             // Act
-            log.Ctx.Set(new Props("first", result, log));
+            LogCtx.Set(new Props("first", result, log));
             log.Debug("Debug");
             log.Fatal(new ArgumentException("Test Fatal Argument Exception", "Param name"), "Fatal");
             log.Error(new ArgumentException("Test Argument Exception", "Param name"), "Error");
