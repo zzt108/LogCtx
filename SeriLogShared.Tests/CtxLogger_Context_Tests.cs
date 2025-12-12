@@ -45,7 +45,7 @@ namespace SeriLogShared.Tests
             var props = new Props("A", "B");
 
             // Act
-            ctx.Set(props);
+            LogCtx.Set(props);
             _ctxLogger.Info("hello");
 
             // Assert
@@ -62,7 +62,7 @@ namespace SeriLogShared.Tests
             var ctx = _ctxLogger.Ctx;
 
             // Act
-            ctx.Set(new Props("X"));
+            LogCtx.Set(new Props("X"));
             _ctxLogger.Info("with strace");
 
             // Assert
@@ -80,13 +80,13 @@ namespace SeriLogShared.Tests
             var ctx = _ctxLogger.Ctx;
 
             // Act 1
-            ctx.Set(new Props("one"));
+            LogCtx.Set(new Props("one"));
             _ctxLogger.Info("first");
             var first = _sink.Events.LastOrDefault();
             HasScalar(first, "P00", "one").ShouldBeTrue();
 
             // Act 2
-            ctx.Set(new Props("two"));
+            LogCtx.Set(new Props("two"));
             _ctxLogger.Info("second");
             var second = _sink.Events.LastOrDefault();
 
@@ -107,7 +107,9 @@ namespace SeriLogShared.Tests
         private sealed class TestSink : ILogEventSink
         {
             private readonly ConcurrentQueue<LogEvent> _events = new ConcurrentQueue<LogEvent>();
+
             public void Emit(LogEvent logEvent) => _events.Enqueue(logEvent);
+
             public LogEvent[] Events => _events.ToArray();
         }
     }

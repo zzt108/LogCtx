@@ -1,5 +1,4 @@
-﻿// ✅ FULL FILE VERSION
-// NLogShared.Tests/CtxLoggerTests.cs
+﻿// NLogShared.Tests/CtxLoggerTests.cs
 // Project: NLogShared.Tests
 // Purpose: Comprehensive unit tests for NLogShared.CtxLogger covering configuration, logging levels, scope context integration, and MemoryTarget-based assertions
 
@@ -239,7 +238,7 @@ namespace NLogShared.Tests
             _memoryTarget.Logs.Clear();
 
             // Act
-            logger.Ctx.Set(new Props("valueA", "valueB"));
+            LogCtx.Set(new Props("valueA", "valueB"));
             logger.Debug("debug with scope");
             LogManager.Flush();
 
@@ -261,7 +260,7 @@ namespace NLogShared.Tests
             _memoryTarget.Logs.Clear();
 
             // Act
-            logger.Ctx.Set(new Props("X"));
+            LogCtx.Set(new Props("X"));
             logger.Info("info with strace");
             LogManager.Flush();
 
@@ -281,9 +280,9 @@ namespace NLogShared.Tests
             _memoryTarget.Logs.Clear();
 
             // Act
-            logger.Ctx.Set(new Props("first"));
+            LogCtx.Set(new Props("first"));
             logger.Info("log one");
-            logger.Ctx.Set(new Props("second"));
+            LogCtx.Set(new Props("second"));
             logger.Info("log two");
             LogManager.Flush();
 
@@ -391,7 +390,7 @@ namespace NLogShared.Tests
 <nlog xmlns=""http://www.nlog-project.org/schemas/NLog.xsd""
       xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance"">
   <targets>
-    <target xsi:type=""Memory"" name=""mem"" 
+    <target xsi:type=""Memory"" name=""mem""
             layout=""${level:uppercase=true}|${message}|${scopeproperty:CTX_STRACE}|${event-properties:P00}"" />
   </targets>
   <rules>
