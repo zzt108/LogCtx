@@ -22,21 +22,21 @@ namespace LogCtx.Tests
             // Use NLog.config from project root
             _configPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "NLog.config");
 
-            if (File.Exists(_configPath))
-            {
-                LogManager.Configuration = new XmlLoggingConfiguration(_configPath);
-            }
+            //if (File.Exists(_configPath))
+            //{
+            //    LogManager.Configuration = new XmlLoggingConfiguration(_configPath);
+            //}
         }
 
         [SetUp]
         public void Setup()
         {
-            var loggerFactory = LoggerFactory.Create(builder =>
-            {
-                builder.AddNLog();
-                builder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace);
-            });
-            _logger = loggerFactory.CreateLogger<SeqIntegrationTests>();
+            //var loggerFactory = LoggerFactory.Create(builder =>
+            //{
+            //    builder.AddNLog();
+            //    builder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace);
+            //});
+            _logger = Logging.Factory.CreateLogger<SeqIntegrationTests>();
         }
 
         [TearDown]
@@ -45,11 +45,11 @@ namespace LogCtx.Tests
             LogManager.Flush();
         }
 
-        [OneTimeTearDown]
-        public void OneTimeTearDown()
-        {
-            NLog.LogManager.Shutdown();
-        }
+        //[OneTimeTearDown]
+        //public void OneTimeTearDown()
+        //{
+        //    NLog.LogManager.Shutdown();
+        //}
 
         [Test]
         [Explicit("Requires SEQ running at http://localhost:5341")]

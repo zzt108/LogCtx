@@ -13,12 +13,12 @@ namespace LogCtx.Tests
         [SetUp]
         public void Setup()
         {
-            var loggerFactory = LoggerFactory.Create(builder =>
-            {
-                builder.AddConsole();
-                builder.SetMinimumLevel(LogLevel.Trace);
-            });
-            _logger = loggerFactory.CreateLogger<BasicTests>();
+            //var loggerFactory = LoggerFactory.Create(builder =>
+            //{
+            //    builder.AddConsole();
+            //    builder.SetMinimumLevel(LogLevel.Trace);
+            //});
+            _logger = Logging.Factory.CreateLogger<BasicTests>();
         }
 
         [Test]
