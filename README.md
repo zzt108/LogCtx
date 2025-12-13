@@ -192,3 +192,11 @@ Open http://localhost:5341 and you should see:
 - Logs with `CTX_STRACE` property containing file::method::line
 - `UserId`, `Action`, `Operation` properties from Props
 - Structured queries work: `UserId = 12345`
+
+## Docs
+
+- API Reference: .doc/API-REFERENCE.md
+- Troubleshooting: .doc/TROUBLESHOOTING.md
+- Migration: .doc/MIGRATION.md
+- Migration examples: .doc/MIGRATION-EXAMPLES.md
+- MAUI samples: .doc/MAUI-SAMPLES.md
