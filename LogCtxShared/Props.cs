@@ -1,258 +1,127 @@
-﻿using Newtonsoft.Json;
+﻿using System.Collections.Concurrent;
+using Newtonsoft.Json;
+using Microsoft.Extensions.Logging;
 
-namespace LogCtxShared;
-
-/// <summary>
-/// Fluent properties dictionary for structured logging context.
-/// Compatible with ILogger.BeginScope() - all properties automatically captured by NLog.
-/// </summary>
-/// <remarks>
-/// Usage with NLog-native:
-/// <code>
-/// using (_logger.SetContext(new Props().Add("UserId", 123).Add("Action", "Login")))
-/// {
-///     _logger.LogInformation("User action");
-/// }
-/// </code>
-/// All properties in Props appear in structured log sinks (SEQ, etc.) for querying.
-/// </remarks>
-public class Props : Dictionary<string, object>, IDisposable
+namespace LogCtxShared
 {
-    private bool _disposedValue;
-
-    public Props()
+    /// <summary>
+    /// Thread-safe fluent properties dictionary for structured logging context.
+    /// Compatible with ILogger.BeginScope - all properties automatically captured by NLog.
+    /// </summary>
+    /// <remarks>
+    /// Usage:
+    /// <code>
+    /// using Props p = _logger.SetContext()
+    ///     .Add("userId", 123)
+    ///     .Add("action", "login");
+    /// {
+    ///     _logger.LogInformation("User logged in");
+    ///     
+    ///     p = _logger.SetContext(p)
+    ///         .Add("step", "validation");
+    ///     _logger.LogInformation("Nested context");
+    /// }
+    /// </code>
+    /// </remarks>
+    public class Props : ConcurrentDictionary<string, object>, IDisposable
     {
-    }
+        private readonly ILogger _logger;
+        private readonly string _sourceFileName;
+        private readonly string _memberName;
+        private readonly int _lineNumber;
+        private IDisposable? _scope;
+        private int _disposed = 0;
 
-    public Props(params object[] args)
-    {
-        int i = 0;
-        foreach (var item in args)
+        internal Props(
+            ILogger logger,
+            ConcurrentDictionary<string, object>? parentProps = null,
+            string? sourceFileName = null,
+            string? memberName = null,
+            int? lineNumber=null)
         {
-            Add($"P{i++:x2}", JsonExtensions.AsJson(item, true));
-        }
-    }
+            _logger = logger;
+            _sourceFileName = sourceFileName??"N/A";
+            _memberName = memberName??"N/A";
+            _lineNumber = lineNumber ?? 0;
 
-    protected virtual void Dispose(bool disposing)
-    {
-        if (!_disposedValue)
-        {
-            if (disposing)
+            // ✅ Copy parent props (thread-safe snapshot)
+            if (parentProps != null)
             {
-                // TODO: dispose managed state (managed objects)
+                foreach (var kv in parentProps)
+                {
+                    TryAdd(kv.Key, kv.Value);
+                }
             }
 
-            // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-            // TODO: set large fields to null
-            _disposedValue = true;
+            // Add CTXSTRACE if not present (from parent or new)
+            if (!ContainsKey(LogContextKeys.STRACE))
+            {
+                var strace = SourceContext.BuildStackTrace(_sourceFileName, _memberName, _lineNumber);
+                this[LogContextKeys.STRACE] = strace;
+            }
+
+            // ✅ Create scope after initialization
+            _scope = _logger.BeginScope(this);
         }
-    }
 
-    public Props AddJson(string key, object value, Formatting formatting = Formatting.None)
-    {
-        Add(key, JsonConvert.SerializeObject(value, formatting));
-        return this;
-    }
-
-    public new Props Add(string key, object? value)
-    {
-        if (ContainsKey(key))
+        /// <summary>
+        /// Adds or updates a property and recreates the logging scope.
+        /// Thread-safe operation.
+        /// </summary>
+        public new Props Add(string key, object? value)
         {
-            Remove(key);
+            // ✅ Thread-safe upsert via indexer
+            this[key] = value ?? null!;
+
+            // ⚠️ Recreate scope to ensure NLog captures updated properties
+            // (Test NLogScopeReferenceTests determines if this is needed)
+            RecreateScope();
+
+            return this;
         }
 
-        if (value == null)
+        /// <summary>
+        /// Adds property with JSON serialization.
+        /// </summary>
+        public Props AddJson(string key, object value, Formatting formatting = Formatting.None)
         {
-            base.Add(key, "null value");
+            this[key] = JsonConvert.SerializeObject(value, formatting);
+            RecreateScope();
+            return this;
         }
-        else
+
+        /// <summary>
+        /// Clears all properties and recreates empty scope.
+        /// </summary>
+        public new Props Clear()
         {
-            base.Add(key, value);
+            base.Clear();
+            RecreateScope();
+            return this;
         }
 
-        return this;
+        /// <summary>
+        /// Recreates the MEL scope with current properties.
+        /// Thread-safe operation.
+        /// </summary>
+        private void RecreateScope()
+        {
+            if (_disposed == 1) return;
+
+            var oldScope = Interlocked.Exchange(ref _scope, null);
+            oldScope?.Dispose();
+
+            _scope = _logger.BeginScope(this);
+        }
+
+        public void Dispose()
+        {
+            // ✅ Thread-safe dispose (once only via Interlocked)
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                var scopeToDispose = Interlocked.Exchange(ref _scope, null);
+                scopeToDispose?.Dispose();
+            }
+        }
     }
-
-    public new Props Clear()
-    {
-        base.Clear();
-        return this;
-    }
-
-    // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-    // ~Props()
-    // {
-    //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-    //     Dispose(disposing: false);
-    // }
-
-    public void Dispose()
-    {
-        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-        Dispose(disposing: true);
-        GC.SuppressFinalize(this);
-    }
 }
-
-/* SEQ Signals for low level log
-{
-"Title": "1 Verbose",
-"Description": "NLog",
-"Filters": [
-{
-"Description": null,
-"DescriptionIsExcluded": false,
-"Filter": "@Level = 'Verbose' ci",
-"FilterNonStrict": "@Level == 'Verbose' ci"
-}
-],
-"Columns": [],
-"IsProtected": false,
-"Grouping": "Explicit",
-"ExplicitGroupName": "@Level",
-"OwnerId": null,
-"Id": "signal-36",
-"Links": {
-"Self": "api/signals/signal-36?version=6",
-"Group": "api/signals/resources"
-}
-}
-
-{
-"Title": "2 Debug",
-"Description": "SeriLog",
-"Filters": [
-{
-"Description": null,
-"DescriptionIsExcluded": false,
-"Filter": "@Level = 'Debug' ci",
-"FilterNonStrict": "@Level == 'Debug' ci"
-}
-],
-"Columns": [],
-"IsProtected": false,
-"Grouping": "Explicit",
-"ExplicitGroupName": "@Level",
-"OwnerId": null,
-"Id": "signal-37",
-"Links": {
-"Self": "api/signals/signal-37?version=5",
-"Group": "api/signals/resources"
-}
-}
-
-{
-"Title": "3 Information",
-"Description": "Automatically created",
-"Filters": [
-{
-  "Description": null,
-  "DescriptionIsExcluded": false,
-  "Filter": "@Level in ['Information', 'Info'] ci",
-  "FilterNonStrict": "@Level in ['Information', 'Info'] ci"
-}
-],
-"Columns": [],
-"IsProtected": false,
-"Grouping": "Explicit",
-"ExplicitGroupName": "@Level",
-"OwnerId": null,
-"Id": "signal-195",
-"Links": {
-"Self": "api/signals/signal-195?version=4",
-"Group": "api/signals/resources"
-}
-}
-
-{
-"Title": "4 Warnings",
-"Description": "Automatically created",
-"Filters": [
-{
-  "Description": null,
-  "DescriptionIsExcluded": false,
-  "Filter": "@Level in ['w', 'wa', 'war', 'wrn', 'warn', 'warning'] ci",
-  "FilterNonStrict": null
-}
-],
-"Columns": [],
-"IsProtected": false,
-"Grouping": "Explicit",
-"ExplicitGroupName": "@Level",
-"OwnerId": null,
-"Id": "signal-m33302",
-"Links": {
-"Self": "api/signals/signal-m33302?version=2",
-"Group": "api/signals/resources"
-}
-}
-
-{
-"Title": "5 Errors",
-"Description": "NLog",
-"Filters": [
-{
-  "Description": null,
-  "DescriptionIsExcluded": false,
-  "Filter": "@Level in ['e', 'er', 'err', 'eror', 'erro', 'error'] ci",
-  "FilterNonStrict": "@Level in ['e', 'er', 'err', 'eror', 'erro', 'error'] ci"
-}
-],
-"Columns": [],
-"IsProtected": false,
-"Grouping": "Explicit",
-"ExplicitGroupName": "@Level",
-"OwnerId": null,
-"Id": "signal-196",
-"Links": {
-"Self": "api/signals/signal-196?version=1",
-"Group": "api/signals/resources"
-}
-}
-
-{
-"Title": "6 Fatal",
-"Description": "NLog",
-"Filters": [
-{
-  "Description": null,
-  "DescriptionIsExcluded": false,
-  "Filter": "@Level in ['f', 'fa', 'fat', 'ftl', 'fata', 'fatl', 'Fatal', 'c', 'cr', 'cri', 'crt', 'crit', 'critical', 'alert', 'emerg', 'panic'] ci",
-  "FilterNonStrict": "@Level in ['f', 'fa', 'fat', 'ftl', 'fata', 'fatl', 'Fatal', 'c', 'cr', 'cri', 'crt', 'crit', 'critical', 'alert', 'emerg', 'panic'] ci"
-}
-],
-"Columns": [],
-"IsProtected": false,
-"Grouping": "Explicit",
-"ExplicitGroupName": "@Level",
-"OwnerId": null,
-"Id": "signal-196",
-"Links": {
-"Self": "api/signals/signal-196?version=1",
-"Group": "api/signals/resources"
-}
-}
-
-{
-"Title": "Exceptions",
-"Description": "Automatically created",
-"Filters": [
-{
-  "Description": null,
-  "DescriptionIsExcluded": false,
-  "Filter": "@Exception is not null",
-  "FilterNonStrict": null
-}
-],
-"Columns": [],
-"IsProtected": false,
-"Grouping": "Inferred",
-"ExplicitGroupName": null,
-"OwnerId": null,
-"Id": "signal-m33303",
-"Links": {
-"Self": "api/signals/signal-m33303?version=1",
-"Group": "api/signals/resources"
-}
-}
-*/

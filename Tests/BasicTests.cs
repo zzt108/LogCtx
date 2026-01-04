@@ -39,7 +39,7 @@ namespace LogCtx.Tests
         public void SetContext_WithProps_ShouldIncludeProperties()
         {
             // Arrange
-            var props = new Props()
+            var props = new Props(_logger, null, null, null, 0)
                 .Add("UserId", 123)
                 .Add("Action", "Test");
 
@@ -71,7 +71,7 @@ namespace LogCtx.Tests
         public void Props_FluentAPI_ShouldChain()
         {
             // Act
-            var props = new Props()
+            var props = new Props(_logger, null, null, null, 0)
                 .Add("Key1", "Value1")
                 .Add("Key2", 42)
                 .Add("Key3", true);

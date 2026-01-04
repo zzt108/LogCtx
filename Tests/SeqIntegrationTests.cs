@@ -56,7 +56,7 @@ namespace LogCtx.Tests
         public void SetContext_LogsToSeq_WithStructuredProperties()
         {
             // Arrange
-            var props = new Props()
+            var props = new Props(_logger)
                 .Add("UserId", 12345)
                 .Add("Action", "IntegrationTest")
                 .Add("Environment", "Development");
@@ -96,11 +96,11 @@ namespace LogCtx.Tests
         public void NestedContexts_LogToSeq_WithCorrectScopeIsolation()
         {
             // Act
-            using (_logger.SetContext(new Props().Add("OuterScope", "Level1")))
+            using (_logger.SetContext(new Props(_logger).Add("OuterScope", "Level1")))
             {
                 _logger.LogInformation("Outer context log");
 
-                using (_logger.SetContext(new Props().Add("InnerScope", "Level2")))
+                using (_logger.SetContext(new Props(_logger).Add("InnerScope", "Level2")))
                 {
                     _logger.LogInformation("Inner context log");
                 }

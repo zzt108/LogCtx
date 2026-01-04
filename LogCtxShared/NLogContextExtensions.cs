@@ -5,47 +5,74 @@ namespace LogCtxShared
 {
     /// <summary>
     /// NLog context extensions for structured logging with caller information.
-    /// Replaces logger.SetContext() pattern with ILogger.SetContext() using BeginScope.
+    /// Replaces logger.SetContext pattern with fluent Props API.
     /// </summary>
     public static class NLogContextExtensions
     {
         /// <summary>
-        /// Sets logging context with automatic caller information capture.
-        /// Returns IDisposable scope - use with 'using' statement to clear context.
+        /// Creates a new logging context scope with automatic caller information capture.
+        /// Returns Props (IDisposable) - use with using statement.
         /// </summary>
-        /// <param name="logger">Logger instance</param>
-        /// <param name="props">Optional properties dictionary. If null, creates new Props.</param>
-        /// <param name="memberName">Auto-captured caller method name</param>
-        /// <param name="sourceFilePath">Auto-captured source file path</param>
-        /// <param name="sourceLineNumber">Auto-captured source line number</param>
-        /// <returns>IDisposable scope that clears context when disposed</returns>
         /// <example>
-        /// using (_logger.SetContext(new Props().Add("UserId", userId)))
+        /// <code>
+        /// using Props p = _logger.SetContext()
+        ///     .Add("userId", 123)
+        ///     .Add("action", "login");
         /// {
-        ///     _logger.LogInformation("User action completed");
+        ///     _logger.LogInformation("User logged in");
         /// }
+        /// </code>
         /// </example>
-        public static IDisposable SetContext(
+        public static Props SetContext(
             this ILogger logger,
-            Props? props = null,
             [CallerMemberName] string memberName = "",
             [CallerFilePath] string sourceFilePath = "",
             [CallerLineNumber] int sourceLineNumber = 0)
         {
-            props ??= new Props();
-
-            // Build source context
             var fileName = System.IO.Path.GetFileNameWithoutExtension(sourceFilePath);
-            var strace = SourceContext.BuildStackTrace(fileName, memberName, sourceLineNumber);
+            return new Props(logger, null, fileName, memberName, sourceLineNumber);
+        }
 
-            // Add stack trace to props if not already present
-            if (!props.ContainsKey(LogContextKeys.STRACE))
-            {
-                props.Add(LogContextKeys.STRACE, strace);
-            }
+        /// <summary>
+        /// Creates a nested logging context that builds upon an existing Props scope.
+        /// The parent scope is disposed after properties are copied.
+        /// </summary>
+        /// <param name="logger">Logger instance</param>
+        /// <param name="parent">Parent Props to inherit properties from</param>
+        /// <param name="memberName">Auto-captured caller method name</param>
+        /// <param name="sourceFilePath">Auto-captured source file path</param>
+        /// <param name="sourceLineNumber">Auto-captured source line number</param>
+        /// <returns>New Props with inherited properties and updated CTXSTRACE</returns>
+        /// <example>
+        /// <code>
+        /// using Props p = _logger.SetContext()
+        ///     .Add("userId", 123);
+        /// {
+        ///     _logger.LogInformation("Outer scope");
+        ///     
+        ///     p = _logger.SetContext(p)
+        ///         .Add("action", "login");
+        ///     _logger.LogInformation("Nested scope - has userId + action");
+        /// }
+        /// </code>
+        /// </example>
+        public static Props SetContext(
+            this ILogger logger,
+            Props parent,
+            [CallerMemberName] string memberName = "",
+            [CallerFilePath] string sourceFilePath = "",
+            [CallerLineNumber] int sourceLineNumber = 0)
+        {
+            var fileName = System.IO.Path.GetFileNameWithoutExtension(sourceFilePath);
 
-            // BeginScope with the props dictionary - NLog captures all key-value pairs
-            return logger.BeginScope(props) ?? new NullScope();
+            // ✅ SAFETY: Copy parent properties BEFORE disposing
+            // (Prevents race where parent could be mutated between dispose and copy)
+            var newProps = new Props(logger, parent, fileName, memberName, sourceLineNumber);
+
+            // ✅ Now safe to dispose parent (properties already copied)
+            parent?.Dispose();
+
+            return newProps;
         }
 
         /// <summary>
@@ -57,29 +84,33 @@ namespace LogCtxShared
         /// <param name="properties">Additional properties as tuples</param>
         /// <returns>IDisposable scope that clears context when disposed</returns>
         /// <example>
+        /// <code>
         /// using (_logger.SetOperationContext("ProcessOrder", ("OrderId", 123), ("CustomerId", 456)))
         /// {
         ///     _logger.LogInformation("Processing order");
         /// }
+        /// </code>
         /// </example>
         public static IDisposable SetOperationContext(
             this ILogger logger,
             string operationName,
             params (string key, object value)[] properties)
         {
-            var props = new Props { ["Operation"] = operationName };
+            var props = new Props(
+                logger,
+                null,
+                "", // No specific file for operation context
+                operationName,
+                0);
+
+            props["Operation"] = operationName;
+
             foreach (var (key, value) in properties)
             {
-                props.Add(key, value);
+                props[key] = value;
             }
-            return logger.SetContext(props);
-        }
 
-        // Null scope for cases where BeginScope returns null
-        private class NullScope : IDisposable
-        {
-            public void Dispose()
-            { }
+            return props;
         }
     }
 }
