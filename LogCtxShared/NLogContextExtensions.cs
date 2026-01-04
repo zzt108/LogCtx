@@ -1,14 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using LogCtxShared;
 
 namespace LogCtxShared
 {
     /// <summary>
     /// NLog context extensions for structured logging with caller information.
-    /// Replaces LogCtx.Set() pattern with ILogger.SetContext() using BeginScope.
+    /// Replaces logger.SetContext() pattern with ILogger.SetContext() using BeginScope.
     /// </summary>
     public static class NLogContextExtensions
     {
@@ -81,7 +78,8 @@ namespace LogCtxShared
         // Null scope for cases where BeginScope returns null
         private class NullScope : IDisposable
         {
-            public void Dispose() { }
+            public void Dispose()
+            { }
         }
     }
 }

@@ -1,7 +1,4 @@
-﻿using System;
-using System.IO;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NLog;
 using NLog.Config;
@@ -9,6 +6,7 @@ using NLog.Extensions.Logging;
 using NLog.Targets;
 
 namespace LogCtxShared;
+
 /// <summary>
 /// Static helper methods for adding NLog as the logging provider to an existing <see cref="ILoggingBuilder"/>.
 /// can be used by:

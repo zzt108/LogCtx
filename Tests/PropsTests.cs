@@ -171,7 +171,7 @@ namespace LogCtx.Tests
 
             // Assert
             var json = props["IndentedKey"] as string;
-            json.ShouldContain("\n"); // Indented JSON has newlines
+            json!.ShouldContain("\n"); // Indented JSON has newlines
         }
 
         [Test]
@@ -186,7 +186,7 @@ namespace LogCtx.Tests
 
             // Assert
             var json = props["CompactKey"] as string;
-            json.ShouldNotContain("\n"); // Compact JSON has no newlines
+            json!.ShouldNotContain("\n"); // Compact JSON has no newlines
         }
 
         [Test]
@@ -220,9 +220,9 @@ namespace LogCtx.Tests
 
             // Assert
             var json = props["OrderKey"] as string;
-            json.ShouldContain("OrderId");
-            json.ShouldContain("Customer");
-            json.ShouldContain("Items");
+            json!.ShouldContain("OrderId");
+            json!.ShouldContain("Customer");
+            json!.ShouldContain("Items");
         }
 
         #endregion AddJson Tests
