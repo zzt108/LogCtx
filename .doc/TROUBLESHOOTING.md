@@ -7,6 +7,7 @@
 **Fix**
 - Ensure scope capture is enabled in the NLog provider options (handled automatically if you use `MauiSetup.AddNLogLogging(...)`).
 - Ensure your `NLog.config` rule writes the event to the SEQ target for the level you are testing.
+- Make sure you are inside a `using Props p = logger.SetContext() { ... }` scope when logging.
 
 ## Properties appear but are not queryable
 **Symptoms**
@@ -30,8 +31,9 @@
 - You expect `CTXSTRACE`, but it doesn’t show.
 
 **Fix**
-- Ensure you are using `logger.SetContext(...)` (it auto-enriches).
-- If you pass a `Props` containing `CTXSTRACE` already, the helper may treat it as “already provided”.
+- Ensure you are using `logger.SetContext()` (it auto-enriches with CTXSTRACE).
+- If you pass a `Props` that already contains `CTXSTRACE`, it will not be overwritten.
+- Remember CTXSTRACE is captured at the `SetContext()` call site, not at `Add()`.
 
 ## Android emulator can’t reach SEQ
 **Symptoms**
@@ -63,5 +65,6 @@
 
 **Fix**
 - Ensure async targets are enabled in `NLog.config` (`<targets async="true">`).
-- Use `SetContext` scopes around logical operations (not excessively around every tiny line).
-- Avoid large stack traces in ultra-hot paths; keep source enrichment scoped to meaningful operations.
+- Use `SetContext` scopes around logical operations (not around every tiny line).
+- Avoid gigantic payloads or very deep stack traces in ultra-hot paths.
+```
