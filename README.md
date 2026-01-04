@@ -1,3 +1,7 @@
+**Important**: the main branch contains legacy code.
+
+New MS Extensions Logging and NLog specific code with documentation can be found in the branch `nlog-specific`
+
 # LogCtx AI Code Generation Guide
 
 **Version:** 1.0
