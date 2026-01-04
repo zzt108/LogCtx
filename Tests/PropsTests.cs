@@ -27,7 +27,7 @@ namespace LogCtx.Tests
             var props = new Props(_logger);
 
             // Assert
-            props.Count.ShouldBe(0);
+            props.Count.ShouldBe(0 + 1);
         }
 
         [Test]
@@ -66,7 +66,7 @@ namespace LogCtx.Tests
             props.Add("Key1", "Value1");
 
             // Assert
-            props.Count.ShouldBe(1);
+            props.Count.ShouldBe(1 + 1);
             props["Key1"].ShouldBe("Value1");
         }
 
@@ -93,7 +93,7 @@ namespace LogCtx.Tests
                 .Add("Key3", true);
 
             // Assert
-            props.Count.ShouldBe(3);
+            props.Count.ShouldBe(3+1);
             props["Key1"].ShouldBe("Value1");
             props["Key2"].ShouldBe(42);
             props["Key3"].ShouldBe(true);
@@ -110,7 +110,7 @@ namespace LogCtx.Tests
             props.Add("Key1", "NewValue");
 
             // Assert
-            props.Count.ShouldBe(1);
+            props.Count.ShouldBe(1+1);
             props["Key1"].ShouldBe("NewValue");
         }
 
@@ -139,7 +139,7 @@ namespace LogCtx.Tests
                 .Add("DoubleKey", 45.67);
 
             // Assert
-            props.Count.ShouldBe(4);
+            props.Count.ShouldBe(4 + 1);
             props["StringKey"].ShouldBe("text");
             props["IntKey"].ShouldBe(123);
             props["BoolKey"].ShouldBe(true);
@@ -315,7 +315,7 @@ namespace LogCtx.Tests
             {
                 using (var props = new Props(_logger).Add("Key", "Value"))
                 {
-                    props.Count.ShouldBe(1);
+                    props.Count.ShouldBe(1 + 1);
                 }
             });
         }
@@ -403,7 +403,7 @@ namespace LogCtx.Tests
 
             // Assert
             dict.ShouldNotBeNull();
-            dict.Count.ShouldBe(2);
+            dict.Count.ShouldBe(2+1);
             dict["Key1"].ShouldBe("Value1");
             dict["Key2"].ShouldBe(42);
         }

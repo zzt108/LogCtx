@@ -68,10 +68,10 @@ namespace LogCtxShared
         /// Adds or updates a property and recreates the logging scope.
         /// Thread-safe operation.
         /// </summary>
-        public new Props Add(string key, object? value)
+        public Props Add(string key, object? value)
         {
             // ✅ Thread-safe upsert via indexer
-            this[key] = value ?? null!;
+            this[key] = value ?? "null value";
 
             // ⚠️ Recreate scope to ensure NLog captures updated properties
             // (Test NLogScopeReferenceTests determines if this is needed)

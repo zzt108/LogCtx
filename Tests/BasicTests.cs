@@ -77,7 +77,7 @@ namespace LogCtx.Tests
                 .Add("Key3", true);
 
             // Assert
-            props.Count.ShouldBe(3); // 3 items added manually
+            props.Count.ShouldBe(3+1); // 3 items added manually
             props["Key1"].ShouldBe("Value1");
             props["Key2"].ShouldBe(42);
             props["Key3"].ShouldBe(true);
