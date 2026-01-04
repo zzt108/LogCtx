@@ -1,6 +1,7 @@
 **Important**: the main branch contains legacy code.
 
-New MS Extensions Logging and NLog specific code with documentation can be found in the branch `nlog-native`
+New MS Extensions Logging and NLog specific code with documentation can be found in the branch [`nlog-native`](https://github.com/zzt108/LogCtx/blob/nlog-native/README.md)
+
 
 # LogCtx AI Code Generation Guide
 
