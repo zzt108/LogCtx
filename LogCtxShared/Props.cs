@@ -16,7 +16,7 @@ namespace LogCtxShared
     ///     .Add("action", "login");
     /// {
     ///     _logger.LogInformation("User logged in");
-    ///     
+    ///
     ///     p = _logger.SetContext(p)
     ///         .Add("step", "validation");
     ///     _logger.LogInformation("Nested context");
@@ -37,11 +37,11 @@ namespace LogCtxShared
             ConcurrentDictionary<string, object>? parentProps = null,
             string? sourceFileName = null,
             string? memberName = null,
-            int? lineNumber=null)
+            int? lineNumber = null)
         {
             _logger = logger;
-            _sourceFileName = sourceFileName??"N/A";
-            _memberName = memberName??"N/A";
+            _sourceFileName = sourceFileName ?? "N/A";
+            _memberName = memberName ?? "N/A";
             _lineNumber = lineNumber ?? 0;
 
             // ✅ Copy parent props (thread-safe snapshot)
@@ -77,6 +77,15 @@ namespace LogCtxShared
             // (Test NLogScopeReferenceTests determines if this is needed)
             RecreateScope();
 
+            return this;
+        }
+
+        public Props Add(IDictionary<string, object> props)
+        {
+            foreach (var kv in props)
+            {
+                this[kv.Key] = kv.Value;
+            }
             return this;
         }
 
