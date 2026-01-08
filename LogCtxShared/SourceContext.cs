@@ -55,7 +55,9 @@ namespace LogCtxShared
                    trimmed.StartsWith("at NUnit.") ||
                    trimmed.StartsWith("at NLog.") ||
                    trimmed.StartsWith("at TechTalk.") ||
-                   trimmed.StartsWith("at Microsoft.Extensions.Logging.");
+                   trimmed.StartsWith("at Avalonia.") ||
+                   trimmed.StartsWith("at LogCtxShared.") ||
+                   trimmed.StartsWith("at Microsoft.Extensions.");
         }
 
         /// <summary>

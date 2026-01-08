@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace LogCtxShared
@@ -23,6 +24,7 @@ namespace LogCtxShared
         /// }
         /// </code>
         /// </example>
+        [StackTraceHidden]
         public static Props SetContext(
             this ILogger logger,
             [CallerMemberName] string memberName = "",

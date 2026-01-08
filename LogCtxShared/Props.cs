@@ -1,6 +1,7 @@
-﻿using System.Collections.Concurrent;
+﻿using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace LogCtxShared
 {
@@ -68,6 +69,7 @@ namespace LogCtxShared
         /// Adds or updates a property and recreates the logging scope.
         /// Thread-safe operation.
         /// </summary>
+        [StackTraceHidden]
         public Props Add(string key, object? value)
         {
             // ✅ Thread-safe upsert via indexer
