@@ -31,7 +31,7 @@ namespace LogCtxShared
         /// <returns></returns>
         public static string AsJsonEmbedded(this object obj) => $"json \"{obj.GetType().Name}\" as J{{\n{JsonConvert.SerializeObject(obj, Formatting.Indented)}\n}}\n";
 
-        public static T FromJson<T>(string value) => JsonConvert.DeserializeObject<T>(value);
+        public static T? FromJson<T>(string value) => JsonConvert.DeserializeObject<T>(value);
 
         public static string Link(
             [CallerMemberName] string memberName = "",
