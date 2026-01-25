@@ -31,7 +31,7 @@ namespace LogCtxShared
         /// <returns></returns>
         public static string AsJsonEmbedded(this object obj) => $"json \"{obj.GetType().Name}\" as J{{\n{JsonConvert.SerializeObject(obj, Formatting.Indented)}\n}}\n";
 
-        public static T? FromJson<T>(string value) => JsonConvert.DeserializeObject<T>(value);
+        public static T? FromJson<T>(this string value) => JsonConvert.DeserializeObject<T>(value);
 
         public static string Link(
             [CallerMemberName] string memberName = "",
@@ -70,14 +70,14 @@ namespace LogCtxShared
 }
 
 {
-"Title": "2 Debug",
+"Title": "2 LogDebug",
 "Description": "SeriLog",
 "Filters": [
 {
 "Description": null,
 "DescriptionIsExcluded": false,
-"Filter": "@Level = 'Debug' ci",
-"FilterNonStrict": "@Level == 'Debug' ci"
+"Filter": "@Level = 'LogDebug' ci",
+"FilterNonStrict": "@Level == 'LogDebug' ci"
 }
 ],
 "Columns": [],
@@ -99,8 +99,8 @@ namespace LogCtxShared
 {
   "Description": null,
   "DescriptionIsExcluded": false,
-  "Filter": "@Level in ['Information', 'Info'] ci",
-  "FilterNonStrict": "@Level in ['Information', 'Info'] ci"
+  "Filter": "@Level in ['Information', 'LogInformation'] ci",
+  "FilterNonStrict": "@Level in ['Information', 'LogInformation'] ci"
 }
 ],
 "Columns": [],

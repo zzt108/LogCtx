@@ -36,7 +36,7 @@ namespace LogCtx.Tests
         public void SetContext_WithNullProps_ShouldCreateNewPropsInternally()
         {
             // Act
-            using (var scope = _logger.SetContext(null))
+            using (var scope = _logger.SetContext())
             {
                 // Assert - should not throw
                 scope.ShouldNotBeNull();
@@ -47,7 +47,7 @@ namespace LogCtx.Tests
         public void SetContext_WithProps_ShouldIncludeAllProperties()
         {
             // Arrange
-            var props = new Props()
+            var props = new Props(_logger, null, null, null, 0)
                 .Add("UserId", 123)
                 .Add("Action", "TestAction");
 
@@ -67,7 +67,7 @@ namespace LogCtx.Tests
         public void SetContext_AutoCapturesCallerInfo()
         {
             // Arrange
-            var props = new Props();
+            var props = new Props(_logger, null, null, null, 0);
 
             // Act
             using (var scope = _logger.SetContext(props))
@@ -86,7 +86,7 @@ namespace LogCtx.Tests
         {
             // Arrange
             var customTrace = "CustomTrace";
-            var props = new Props()
+            var props = new Props(_logger, null, null, null, 0)
                 .Add(LogContextKeys.STRACE, customTrace);
 
             // Act
@@ -101,8 +101,8 @@ namespace LogCtx.Tests
         public void SetContext_NestedScopes_ShouldIsolateContexts()
         {
             // Arrange
-            var outerProps = new Props().Add("Level", "Outer");
-            var innerProps = new Props().Add("Level", "Inner");
+            var outerProps = new Props(_logger, null, null, null, 0).Add("Level", "Outer");
+            var innerProps = new Props(_logger, null, null, null, 0).Add("Level", "Inner");
 
             // Act & Assert
             using (var outerScope = _logger.SetContext(outerProps))
@@ -126,7 +126,7 @@ namespace LogCtx.Tests
         public void SetContext_DisposeShouldNotThrow()
         {
             // Arrange
-            var scope = _logger.SetContext(new Props().Add("Key", "Value"));
+            var scope = _logger.SetContext(new Props(_logger, null, null, null, 0).Add("Key", "Value"));
 
             // Act & Assert
             Should.NotThrow(() => scope.Dispose());
@@ -205,7 +205,7 @@ namespace LogCtx.Tests
         public void SetContext_MultipleProperties_AllCaptured()
         {
             // Arrange
-            var props = new Props()
+            var props = new Props(_logger, null, null, null, 0)
                 .Add("UserId", 999)
                 .Add("SessionId", "session-abc-123")
                 .Add("Environment", "Test")
@@ -225,7 +225,7 @@ namespace LogCtx.Tests
         public void SetContext_WithException_ShouldLogContextWithException()
         {
             // Arrange
-            var props = new Props().Add("ErrorContext", "CriticalError");
+            var props = new Props(_logger, null, null, null, 0).Add("ErrorContext", "CriticalError");
 
             // Act & Assert
             using (var scope = _logger.SetContext(props))
