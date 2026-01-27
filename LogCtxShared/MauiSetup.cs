@@ -26,12 +26,13 @@ public static class MauiSetup
         IConfiguration? configuration = null,
         string? seqUrl = null,
         string? apiKey = null,
-        string nlogConfigFileName = "NLog.config")
+        string nlogConfigFileName = "NLog.config",
+        string? nlogConfigContent = null)
     {
         var resolvedSeqUrl = seqUrl ?? GetConfigValue(configuration, "Seq:Url", "seqUrl");
         var resolvedApiKey = apiKey ?? GetConfigValue(configuration, "Seq:ApiKey", "seqApiKey");
 
-        SafeLoadNLogConfiguration(nlogConfigFileName);
+        SafeLoadNLogConfiguration(nlogConfigFileName, nlogConfigContent, resolvedSeqUrl, resolvedApiKey);
         ApplySeqVariables(resolvedSeqUrl, resolvedApiKey);
 
         logging.ClearProviders();
@@ -62,22 +63,45 @@ public static class MauiSetup
         });
     }
 
-    private static void SafeLoadNLogConfiguration(string nlogConfigFileName)
+    private static void SafeLoadNLogConfiguration(string nlogConfigFileName, string? nlogConfigContent, string? seqUrl, string? apiKey)
     {
         try
         {
+            // Enable internal logging to console/debug for troubleshooting
+            NLog.Common.InternalLogger.LogToConsole = true;
+            NLog.Common.InternalLogger.LogLevel = NLog.LogLevel.Trace;
+
+            if (!string.IsNullOrWhiteSpace(nlogConfigContent))
+            {
+                System.Diagnostics.Debug.WriteLine("[LogCtx] Loading NLog config from XML string (with manual variable replacement).");
+
+                // Manually replace variables to ensure they are available before targets initialize
+                var processedXml = nlogConfigContent;
+                if (!string.IsNullOrWhiteSpace(seqUrl))
+                    processedXml = processedXml.Replace("${var:seqUrl}", seqUrl);
+                if (!string.IsNullOrWhiteSpace(apiKey))
+                    processedXml = processedXml.Replace("${var:seqApiKey}", apiKey);
+
+                LogManager.Setup().LoadConfigurationFromXml(processedXml);
+                return;
+            }
+
             var configPath = ResolveConfigPath(nlogConfigFileName);
+            System.Diagnostics.Debug.WriteLine($"[LogCtx] Attempting to load NLog config from file: {configPath}");
 
             if (File.Exists(configPath))
             {
                 LogManager.Setup().LoadConfigurationFromFile(configPath);
+                System.Diagnostics.Debug.WriteLine("[LogCtx] NLog config loaded from file.");
                 return;
             }
 
+            System.Diagnostics.Debug.WriteLine("[LogCtx] NLog config file not found, using fallback.");
             ApplyFallbackConsoleConfiguration();
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[LogCtx] Error in SafeLoadNLogConfiguration: {ex}");
             ApplyFallbackConsoleConfiguration();
         }
     }
@@ -107,8 +131,11 @@ public static class MauiSetup
             var config = LogManager.Configuration;
             if (config == null)
             {
+                System.Diagnostics.Debug.WriteLine("[LogCtx] ApplySeqVariables: LogManager.Configuration is NULL.");
                 return;
             }
+
+            System.Diagnostics.Debug.WriteLine($"[LogCtx] ApplySeqVariables: seqUrl='{seqUrl}', apiKey='{apiKey}'");
 
             if (!string.IsNullOrWhiteSpace(seqUrl))
             {
@@ -122,9 +149,9 @@ public static class MauiSetup
 
             LogManager.ReconfigExistingLoggers();
         }
-        catch
+        catch (Exception ex)
         {
-            // Never throw from logging bootstrap.
+            System.Diagnostics.Debug.WriteLine($"[LogCtx] Error in ApplySeqVariables: {ex}");
         }
     }
 
