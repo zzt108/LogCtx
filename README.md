@@ -1,275 +1,145 @@
-# LogCtx - NLog-Native Structured Logging
+# LogCtx
 
-NLog-native structured logging library with context management using `ILogger<T>` and `BeginScope`.
+`LogCtx` is a structured logging helper built on top of `Microsoft.Extensions.Logging`. It uses `BeginScope` under the hood and adds source/caller context automatically through `SetContext()`. This is the current, real usage model in the codebase.
 
-## Features
+## Core rule
 
-- ✅ Native `ILogger<T>` integration (no custom abstractions)
-- ✅ Automatic CallerInfo capture (file, method, line)
-- ✅ Stack trace filtering (excludes framework noise)
-- ✅ SEQ structured logging support
-- ✅ Fluent Props API for context properties
-- ✅ Nested scope support
-- ✅ Thread-safe Props based on ConcurrentDictionary
+In normal app code, use:
 
-## Quick Start
+- `ILogger<T>` injection
+- `logger.SetContext()` for a scope
+- optional `.Add(...)` calls for structured properties
+- normal `LogInformation`, `LogWarning`, `LogError`, etc. inside that scope
 
-### 1. Install NuGet Package
+## Important clarifications
 
-```bash
-dotnet add package LogCtx
+### `SetContext()` is useful even by itself
+
+This is valid and meaningful:
+
+```csharp
+using var ctx = logger.SetContext();
+logger.LogInformation("Application started");
 ```
 
+Even without extra properties, `SetContext()` captures caller/source information such as source file, member, line, and stack-trace-style context metadata.
 
-### 2. Configure NLog
+### `MauiSetup` is only a bootstrap helper name
 
-Add `NLog.config` to your project:
+`LogCtxShared.MauiSetup` may be used from non-MAUI apps too. In the current codebase it is used from an Avalonia desktop app to create the logger factory.
 
-```xml
-<?xml version="1.0" encoding="utf-8" ?>
-<nlog xmlns="http://www.nlog-project.org/schemas/NLog.xsd"
-      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-      autoReload="true"
-      throwConfigExceptions="true">
+Do not infer a MAUI-only usage rule from the class name.
 
-  <variable name="seqUrl" value="http://localhost:5341" />
+## Real usage patterns
 
-  <targets async="true">
-    <target xsi:type="Seq" name="seq" serverUrl="${var:seqUrl}" />
-  </targets>
-
-  <rules>
-    <logger name="*" minlevel="Trace" writeTo="seq" />
-  </rules>
-</nlog>
-```
-
-
-### 3. Use in Code
+### 1. Bootstrap logging once
 
 ```csharp
 using Microsoft.Extensions.Logging;
 using LogCtxShared;
 
-public class MyService
-{
-    private readonly ILogger<MyService> _logger;
+var loggerFactory = MauiSetup.CreateLoggerFactory(
+    configuration: null,
+    seqUrl: "http://localhost:5341",
+    apiKey: null,
+    nlogConfigFileName: "NLog.config");
 
-    public MyService(ILogger<MyService> logger)
+var logger = loggerFactory.CreateLogger<Program>();
+
+using var ctx = logger.SetContext();
+logger.LogInformation("Starting app");
+```
+
+### 2. Service logging
+
+```csharp
+public sealed class LogWatcherService
+{
+    private readonly ILogger<LogWatcherService> _logger;
+    private readonly string _logPath;
+
+    public LogWatcherService(ILogger<LogWatcherService> logger, string logPath)
     {
         _logger = logger;
+        _logPath = logPath;
     }
 
-    public void ProcessOrder(int orderId, int customerId)
+    public void Start()
     {
-        using Props p = _logger.SetContext()
-            .Add("OrderId", orderId)
-            .Add("CustomerId", customerId);
-        {
-            _logger.LogInformation("Processing order");
-            // All logs within this scope include OrderId, CustomerId and CTXSTRACE
-        }
+        using var ctx = _logger.SetContext()
+            .Add("LogPath", _logPath);
+
+        _logger.LogInformation("Starting log watcher");
     }
 }
 ```
 
-
-## SEQ Setup
-
-### Install SEQ
-
-```bash
-# Windows (via Chocolatey)
-choco install seq
-
-# macOS/Linux (via Docker)
-docker run -d --name seq -e ACCEPT_EULA=Y -p 5341:80 datalust/seq:latest
-```
-
-
-### Access SEQ UI
-
-- **URL:** http://localhost:5341
-- **Default:** No authentication required
-
-
-### Verify Logs in SEQ
-
-1. Run your application
-2. Open http://localhost:5341
-3. Filter by `CTX_STRACE` property to see context logs
-4. Use queries like: `OrderId = 123` or `Operation = "ProcessOrder"`
-
-## API Reference
-
-### SetContext
+### 3. ViewModel / UI operation logging
 
 ```csharp
-Props SetContext(this ILogger logger,
-    string memberName = "",
-    string sourceFilePath = "",
-    int sourceLineNumber = 0);
-```
-
-Extension method with CallerInfo attributes (in real code they are `[CallerMemberName]`, `[CallerFilePath]`, `[CallerLineNumber]`).
-
-Creates a new `Props` scope with automatic CallerInfo capture. Use with `using`:
-
-```csharp
-using Props p = logger.SetContext()
-    .Add("Key", "Value");
+public async Task CopyToClipboardAsync(string text)
 {
-    logger.LogInformation("Message");
+    using var ctx = _logger.SetContext()
+        .Add("Operation", "CopyToClipboard")
+        .Add("TextLength", text.Length);
+
+    _logger.LogInformation("Copying text to clipboard");
+    await _clipboard.SetTextAsync(text);
+    _logger.LogInformation("Clipboard copy complete");
 }
 ```
 
-
-### SetContext (nested)
-
-```csharp
-Props SetContext(this ILogger logger, Props parent,
-    string memberName = "",
-    string sourceFilePath = "",
-    int sourceLineNumber = 0);
-```
-
-Creates a nested context that **inherits** properties from `parent`, then disposes the parent scope.
+### 4. Exception logging
 
 ```csharp
-using Props p = logger.SetContext()
-    .Add("userId", 123);
+using var ctx = _logger.SetContext()
+    .Add("Operation", "WatchLoop")
+    .Add("LogPath", _logPath);
 
-p = logger.SetContext(p)
-    .Add("action", "login");
-
-logger.LogInformation("Has userId and action");
-```
-
-
-### SetOperationContext
-
-```csharp
-IDisposable SetOperationContext(
-    this ILogger logger,
-    string operationName,
-    params (string key, object value)[] properties);
-```
-
-Convenience method for operation-scoped logging.
-
-```csharp
-using (logger.SetOperationContext(
-    "ProcessOrder",
-    ("OrderId", orderId),
-    ("CustomerId", customerId)))
+try
 {
-    logger.LogInformation("Processing order");
+    await RunAsync(ct);
+}
+catch (Exception ex)
+{
+    _logger.LogError(ex, "Watch loop failed");
+    throw;
 }
 ```
 
+## What to avoid
 
-### Props
+### Avoid direct `NLog.*` usage in normal app code
 
-Fluent, thread-safe API for building context properties:
+The main project should think in terms of `ILogger<T>` + `LogCtx` scopes.
 
-```csharp
-// Created internally by SetContext() – don't call new Props() directly in app code
-using Props p = logger.SetContext()
-    .Add("Key1", "Value1")
-    .Add("Key2", 42)
-    .AddJson("ComplexObject", myObject);
-```
+Direct NLog references are acceptable only for bootstrap/configuration when truly needed.
 
-- Based on `ConcurrentDictionary<string, object>`
-- Thread-safe Add / indexer
-- Recreates scope when properties change so NLog sees updates
+### Avoid `new Props(...)` in app code
 
+Normal application code should start from `logger.SetContext()`.
 
-## Testing
+### Avoid giant long-lived scopes
 
-### Run Unit Tests
+Prefer short-lived scopes tied to real operations such as:
 
-```bash
-dotnet test
-```
+- startup
+- file watcher start
+- watch loop
+- payload parse
+- clipboard operation
+- one specific command or action
 
+## Current mental model
 
-### Run SEQ Integration Tests
+Use this sentence as the default rule:
 
-Requires SEQ running at http://localhost:5341:
+> Open a context at the operation boundary, add a few stable structured properties if they help, and log normally inside that scope.
 
-```bash
-dotnet test --filter Category=Integration
-```
+## Minimal checklist for AI agents
 
-
-## Context Keys
-
-Standard context property keys (available in `LogContextKeys`):
-
-- `CTX_FILE` - Source file name
-- `CTX_LINE` - Source line number
-- `CTX_METHOD` - Method name
-- `CTX_SRC` - Compact source location
-- `CTX_STRACE` - Filtered stack trace
-
-
-## License
-
-MIT
-
-***
-
-## File Summary
-
-| File | Type | Purpose |
-| :-- | :-- | :-- |
-| LogCtx\NLog.config | ✅ NEW | SEQ + Console + File targets configuration |
-| LogCtx\NLog.Development.config | ✅ NEW | Development-specific overrides |
-| LogCtx\appsettings.json | ✅ NEW | SEQ connection settings |
-| LogCtxShared.projitems | 🔄 MODIFY | Add NLog.Targets.Seq package |
-| LogCtx.csproj | 🔄 MODIFY | Copy config files to output |
-| Tests\Tests.csproj | 🔄 MODIFY | Add NLog.Targets.Seq for integration tests |
-| Tests\Tests\SeqIntegrationTests.cs | ✅ NEW | Verify SEQ connectivity and context logging |
-| README.md | ✅ NEW | Setup and usage documentation |
-
-
-***
-
-## Testing SEQ Integration
-
-### 1. Start SEQ
-
-```bash
-# Docker (easiest)
-docker run -d --name seq -e ACCEPT_EULA=Y -p 5341:80 datalust/seq:latest
-
-# Or Windows service (if installed)
-# SEQ runs automatically after installation
-```
-
-
-### 2. Run Integration Tests
-
-```bash
-cd C:\Git\LogCtx
-dotnet test --filter "Category=Integration"
-```
-
-
-### 3. Verify in SEQ UI
-
-Open http://localhost:5341 and you should see:
-
-- Logs with `CTX_STRACE` property containing file.method.line
-- `UserId`, `Action`, `Operation` properties from Props
-- Structured queries work: `UserId = 12345`
-
-
-## Docs
-
-- API Reference: .doc/API-REFERENCE-v2.md
-- Troubleshooting: .doc/TROUBLESHOOTING.md
-- Migration: .doc/MIGRATION-GUIDE-v2.md
-- Migration examples: .doc/MIGRATION-EXAMPLES.md
-- MAUI samples: .doc/MAUI-SAMPLES.md
+- Inject `ILogger<T>`.
+- Call `SetContext()` at the start of each meaningful operation.
+- Add `.Add(...)` only for useful structured properties.
+- Use `LogError(ex, ...)` for exceptions.
+- Do not spread raw `NLog` APIs through application code.
