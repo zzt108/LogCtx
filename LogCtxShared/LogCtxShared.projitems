@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <MSBuildAllProjects Condition="'$(MSBuildVersion)' == '' Or '$(MSBuildVersion)' &lt; '16.0'">$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
@@ -11,11 +11,6 @@
   <ItemGroup>
     <!-- NuGet Packages -->
     <Compile Include="$(MSBuildThisFileDirectory)MauiSetup.cs" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="NLog" Version="5.3.4" />
-    <PackageReference Include="NLog.Extensions.Logging" Version="5.3.14" />
-    <PackageReference Include="NLog.Targets.Seq" Version="2.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
     <!-- ✅ NEW - NLog-native files -->
     <Compile Include="$(MSBuildThisFileDirectory)NLogContextExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SourceContext.cs" />
