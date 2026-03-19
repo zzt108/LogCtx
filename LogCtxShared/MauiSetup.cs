@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NLog;
 using NLog.Config;
@@ -124,14 +124,27 @@ public static class MauiSetup
                 return;
             }
 
-            if (!string.IsNullOrWhiteSpace(seqUrl))
+            // Programmatically find the Seq target to override its properties.
+            // This is necessary because SeqTarget doesn't support NLog layout variables for serverUrl.
+            var seqTarget = config.FindTargetByName("seq");
+            
+            // Handle wrapper if async="true" was used in config
+            if (seqTarget is NLog.Targets.Wrappers.WrapperTargetBase wrapper)
             {
-                config.Variables["seqUrl"] = seqUrl;
+                seqTarget = wrapper.WrappedTarget;
             }
 
-            if (!string.IsNullOrWhiteSpace(apiKey))
+            if (seqTarget is NLog.Targets.Seq.SeqTarget target)
             {
-                config.Variables["seqApiKey"] = apiKey;
+                if (!string.IsNullOrWhiteSpace(seqUrl))
+                {
+                    target.ServerUrl = seqUrl;
+                }
+
+                if (!string.IsNullOrWhiteSpace(apiKey))
+                {
+                    target.ApiKey = apiKey;
+                }
             }
 
             LogManager.ReconfigExistingLoggers();
